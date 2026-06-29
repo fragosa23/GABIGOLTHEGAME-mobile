@@ -4,18 +4,18 @@ import { playWhistle } from '../engine/audio.js';
 export function runIntro(lines, onDone) {
   const box = document.createElement('div');
   box.style.cssText = `position:fixed;left:50%;bottom:9vh;transform:translateX(-50%);z-index:60;
-    max-width:min(68vw,520px);background:linear-gradient(180deg,#0e1830dd,#0a1224dd);border:2px solid #3aa0ffbb;
-    border-radius:14px;padding:clamp(14px,2.5vh,20px) clamp(18px,4vw,28px) clamp(12px,2vh,16px);
-    box-shadow:0 10px 40px #000a,0 0 26px #2f9bff55;
+    max-width:min(68vw,560px);background:#07122699;border:1px solid #ffffff66;
+    border-radius:26px;padding:clamp(12px,2.3vh,18px) clamp(18px,4vw,30px) clamp(11px,2vh,15px);
+    box-shadow:0 8px 28px #0008;
     font-family:system-ui,sans-serif;color:#fff;opacity:0;transition:opacity .25s;`;
 
   const who = document.createElement('div');
   who.textContent = 'G. CALDEIRA';
-  who.style.cssText = `position:absolute;top:-16px;left:22px;background:#1f5fd0;border:2px solid #fff;
-    border-radius:8px;padding:2px 10px;font-weight:900;font-size:clamp(10px,2vw,13px);letter-spacing:.5px;box-shadow:0 4px 12px #0008;`;
+  who.style.cssText = `margin-bottom:5px;color:#9dd0ff;font-weight:900;font-size:clamp(9px,1.8vw,12px);
+    letter-spacing:.8px;text-shadow:0 2px 6px #000;`;
 
   const txt = document.createElement('div');
-  txt.style.cssText = `font-size:clamp(14px,3vw,21px);font-weight:600;line-height:1.32;min-height:1.4em;text-shadow:0 2px 6px #0008;`;
+  txt.style.cssText = `font-size:clamp(13px,2.6vw,20px);font-weight:650;line-height:1.32;min-height:1.4em;text-shadow:0 2px 6px #0008;`;
 
   const prompt = document.createElement('div');
   prompt.textContent = 'TOCA PARA AVANÇAR';

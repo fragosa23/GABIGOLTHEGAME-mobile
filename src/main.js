@@ -8,7 +8,7 @@ import { buildLevel } from './world/level.js';
 import { buildDragaoLevel } from './world/dragao.js';
 import { HUD } from './ui/hud.js';
 import { SpeedFx } from './engine/speedFx.js';
-import { resumeAudio, startCrowd } from './engine/audio.js';
+import { playWhistle, resumeAudio, startCrowd } from './engine/audio.js';
 import { showMenu } from './ui/menu.js';
 import { runIntro } from './ui/intro.js';
 
@@ -75,6 +75,23 @@ let introT = 0;
 let prevPowers = 0, prevHp = player.hp;
 const clock = new THREE.Clock();
 
+function centerCallout(text, color = '#fff', glow = '#2f9bff') {
+  const el = document.createElement('div');
+  el.textContent = text;
+  el.style.cssText = `position:fixed;left:50%;top:50%;width:100vw;height:40vh;z-index:60;
+    display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%) scale(.6);
+    font-family:system-ui,sans-serif;font-size:clamp(30px,7vw,58px);font-weight:900;letter-spacing:1px;
+    color:${color};text-align:center;text-shadow:0 6px 24px #000b,0 0 28px ${glow};
+    pointer-events:none;opacity:0;transition:transform .5s cubic-bezier(.2,1.5,.4,1),opacity .4s;`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => {
+    el.style.opacity = '1';
+    el.style.transform = 'translate(-50%,-50%) scale(1)';
+  });
+  setTimeout(() => { el.style.opacity = '0'; }, 1700);
+  setTimeout(() => el.remove(), 2200);
+}
+
 // câmara a orbitar lentamente o jogador durante a intro (estilo Matrix)
 function introCamera() {
   const m = player.model.position;
@@ -128,12 +145,21 @@ function loop() {
     if (level.requireClear && !level.goalActive &&
         level.enemies.length && level.enemies.every((e) => !e.alive)) {
       level.goalActive = true;
-      hud.message('🥅 Inimigos eliminados! A baliza brilha — entra nela para marcar!', 5);
+      playWhistle();
+      centerCallout('PROCURA A BALIZA DOURADA', '#ffe66b', '#ffd23c');
     }
     if (level.goalActive) {
       const pulse = 0.6 + Math.sin(performance.now() * 0.006) * 0.4; // 0.2..1.0
-      if (level.goalGlow) level.goalGlow.intensity = 8 + pulse * 12;
-      if (level.goalParts) for (const m of level.goalParts) m.material.emissiveIntensity = pulse;
+      if (level.goalGlow) level.goalGlow.intensity = 18 + pulse * 28;
+      if (level.goalParts) for (const m of level.goalParts) m.material.emissiveIntensity = 1.2 + pulse * 2.8;
+      if (level.goalAura) {
+        level.goalAura.visible = true;
+        level.goalAura.rotation.y += dt * 0.9;
+        level.goalAura.rotation.z -= dt * 0.45;
+        const s = 0.92 + pulse * 0.18;
+        level.goalAura.scale.setScalar(s);
+        for (const c of level.goalAura.children) c.material.opacity = 0.16 + pulse * 0.22;
+      }
     }
 
     for (const t of level.triggers) {

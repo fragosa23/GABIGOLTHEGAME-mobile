@@ -62,6 +62,25 @@ export function buildDragaoLevel(scene, physics, onReady) {
   const goalGlow = new THREE.PointLight(0xffe14d, 0, 30, 2);
   goalGlow.position.set(goal.x, 3, goal.z); scene.add(goalGlow);
   const goalParts = [];
+  const goalAura = new THREE.Group();
+  goalAura.position.set(goal.x, 2.8, goal.z);
+  goalAura.visible = false;
+  const auraMat = new THREE.MeshBasicMaterial({
+    color: 0xffd23c,
+    transparent: true,
+    opacity: 0.24,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const auraRingA = new THREE.Mesh(new THREE.TorusGeometry(4.6, 0.08, 12, 96), auraMat.clone());
+  const auraRingB = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.06, 12, 96), auraMat.clone());
+  const auraHalo = new THREE.Mesh(new THREE.RingGeometry(2.2, 4.8, 96), auraMat.clone());
+  auraRingA.rotation.x = Math.PI / 2;
+  auraRingB.rotation.y = Math.PI / 2;
+  auraHalo.rotation.y = Math.PI / 2;
+  goalAura.add(auraRingA, auraRingB, auraHalo);
+  scene.add(goalAura);
 
   // GLB visual
   new GLTFLoader().load(glbUrl, (gltf) => {
@@ -112,7 +131,7 @@ export function buildDragaoLevel(scene, physics, onReady) {
   return {
     spawn, facing: Math.PI,       // virado para -z (a baliza-objetivo)
     balls, enemies, triggers, goal,
-    goalParts, goalGlow,          // peças/luz da baliza para o brilho
+    goalParts, goalGlow, goalAura, // peças/luz/aura da baliza para o brilho
     requireClear: true,           // a baliza só conta com todos os inimigos mortos
     goalActive: false,
   };
