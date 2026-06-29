@@ -1,0 +1,21 @@
+{
+  "name": "G. CALDEIRA 8 Mobile",
+  "short_name": "G Caldeira",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "icons": [
+    {
+      "src": "/assets/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icon.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    }
+  ]
+}

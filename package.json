@@ -1,0 +1,19 @@
+{
+  "name": "gabigolthegame-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --base=./",
+    "build:pages": "vite build --base=/GABIGOLTHEGAME-mobile/",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^23.11.1",
+    "vite": "^5.4.0"
+  },
+  "dependencies": {
+    "three": "^0.169.0"
+  }
+}

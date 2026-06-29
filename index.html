@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="screen-orientation" content="landscape" />
+    <meta name="orientation" content="landscape" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>G. CALDEIRA 8 — Prologue</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0b1020;
+        font-family: system-ui, sans-serif;
+        touch-action: none;
+        overscroll-behavior: none;
+        user-select: none;
+      }
+      #app { width: 100vw; height: 100vh; display: block; }
+      canvas { display: block; touch-action: none; }
+
+      #mobileControls {
+        position: fixed;
+        inset: 0;
+        z-index: 45;
+        pointer-events: none;
+        display: none;
+        font-family: system-ui, sans-serif;
+      }
+
+      .mobile-controls-enabled #mobileControls {
+        display: block;
+      }
+
+      .mobile-joy {
+        position: absolute;
+        left: max(18px, env(safe-area-inset-left));
+        bottom: max(22px, env(safe-area-inset-bottom));
+        width: 132px;
+        height: 132px;
+        border-radius: 50%;
+        pointer-events: auto;
+        touch-action: none;
+        opacity: .56;
+        background: radial-gradient(circle at 50% 50%, #ffffff10 0 34%, #06101d73 35% 100%);
+        border: 2px solid #ffffff38;
+        box-shadow: 0 10px 26px #0006, inset 0 0 20px #5fc7ff18;
+      }
+
+      .mobile-joy::before {
+        content: "";
+        position: absolute;
+        inset: 18px;
+        border: 1px solid #ffffff25;
+        border-radius: inherit;
+      }
+
+      .mobile-joy-knob {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(180deg, #eaf8ffb8, #67c7ff91);
+        border: 2px solid #ffffff88;
+        box-shadow: 0 6px 14px #0006;
+      }
+
+      .mobile-joy.is-active {
+        border-color: #8fe5ffcc;
+        opacity: .78;
+      }
+
+      .mobile-actions {
+        position: absolute;
+        right: max(16px, env(safe-area-inset-right));
+        bottom: max(20px, env(safe-area-inset-bottom));
+        width: min(290px, 46vw);
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        align-items: end;
+        gap: clamp(8px, 1.5vw, 14px);
+        pointer-events: auto;
+        touch-action: none;
+      }
+
+      .mobile-btn {
+        width: clamp(58px, 10vw, 76px);
+        height: clamp(58px, 10vw, 76px);
+        aspect-ratio: 1;
+        border: 2px solid #ffffff6f;
+        border-radius: 50%;
+        color: #fff;
+        background:
+          radial-gradient(circle at 35% 24%, #ffffff40, #ffffff00 28%),
+          linear-gradient(180deg, #2b385ab5, #11182b7d);
+        box-shadow: 0 8px 18px #0007, inset 0 4px 12px #ffffff18, inset 0 -8px 14px #0006;
+        font-size: clamp(9px, 1.6vw, 11px);
+        font-weight: 900;
+        letter-spacing: 0;
+        text-shadow: 0 2px 4px #000b;
+        touch-action: none;
+      }
+
+      .mobile-btn-small {
+        font-size: clamp(9px, 1.6vw, 11px);
+      }
+
+      .mobile-btn-kick {
+        background:
+          radial-gradient(circle at 35% 24%, #ffffff45, #ffffff00 28%),
+          linear-gradient(180deg, #ff7a45b8, #c628288c);
+      }
+
+      .mobile-btn.is-active {
+        border-color: #9dff6a;
+        background:
+          radial-gradient(circle at 35% 24%, #ffffff4d, #ffffff00 28%),
+          linear-gradient(180deg, #35ad5acf, #17672fac);
+        box-shadow: 0 0 16px #6dff7b66, 0 8px 18px #0007;
+        transform: translateY(2px) scale(.96);
+      }
+
+      .mobile-controls-enabled #hint {
+        display: none !important;
+      }
+
+      .mobile-controls-enabled #msg {
+        bottom: max(170px, calc(env(safe-area-inset-bottom) + 162px)) !important;
+      }
+
+      #portraitGuard {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 28px;
+        text-align: center;
+        color: #fff;
+        background: #050913ee;
+        font-size: 22px;
+        font-weight: 900;
+        line-height: 1.25;
+      }
+
+      @media (orientation: portrait) and (pointer: coarse) {
+        #portraitGuard {
+          display: flex;
+        }
+      }
+
+      @media (orientation: portrait) {
+        .mobile-joy {
+          width: 118px;
+          height: 118px;
+        }
+
+        .mobile-actions {
+          width: min(250px, 54vw);
+        }
+
+        .mobile-btn {
+          width: clamp(54px, 15vw, 68px);
+          height: clamp(54px, 15vw, 68px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="portraitGuard">Roda o telemovel para horizontal</div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
