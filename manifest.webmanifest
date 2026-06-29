@@ -1,8 +1,10 @@
 {
   "name": "G. CALDEIRA 8 Mobile",
   "short_name": "G Caldeira",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
   "orientation": "landscape",
   "background_color": "#0b1020",
   "theme_color": "#0b1020",

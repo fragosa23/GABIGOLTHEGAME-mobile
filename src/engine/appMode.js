@@ -1,21 +1,31 @@
-let requested = false;
+let fullscreenOk = false;
+let orientationOk = false;
 
 export async function requestMobileAppMode() {
-  if (requested) return;
-  requested = true;
-
   const root = document.documentElement;
-  try {
-    if (!document.fullscreenElement && root.requestFullscreen) {
-      await root.requestFullscreen({ navigationUI: 'hide' });
+  document.body.style.minHeight = '100dvh';
+  window.scrollTo(0, 1);
+
+  if (!fullscreenOk && !document.fullscreenElement) {
+    try {
+      const request = root.requestFullscreen || root.webkitRequestFullscreen || document.body.requestFullscreen;
+      if (request) {
+        await request.call(root, { navigationUI: 'hide' });
+        fullscreenOk = true;
+      }
+    } catch (_) {
+      // Browsers may require a stricter user gesture or may not support fullscreen on mobile.
     }
-  } catch (_) {
-    // Some mobile browsers only allow fullscreen from specific gestures.
   }
 
-  try {
-    await screen.orientation?.lock?.('landscape');
-  } catch (_) {
-    // iOS Safari and some Android browsers do not expose orientation lock.
+  if (!orientationOk) {
+    try {
+      await screen.orientation?.lock?.('landscape');
+      orientationOk = true;
+    } catch (_) {
+      // iOS Safari and some Android browsers do not expose orientation lock.
+    }
   }
+
+  setTimeout(() => window.scrollTo(0, 1), 120);
 }

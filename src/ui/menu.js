@@ -57,8 +57,8 @@ export function showMenu(onStart) {
 
   let choicesVisible = false, started = false;
 
-  const showChoices = () => {
-    requestMobileAppMode();
+  const showChoices = async () => {
+    await requestMobileAppMode();
     resumeAudio();
     startMenuAmbience();
     if (choicesVisible) return;
@@ -73,8 +73,9 @@ export function showMenu(onStart) {
     }
   };
 
-  const go = (mode) => {
+  const go = async (mode) => {
     if (started) return; started = true;
+    await requestMobileAppMode();
     window.removeEventListener('keydown', onKey);
     stopMenuAmbience();
     root.style.pointerEvents = 'none'; root.style.opacity = '0';
@@ -91,9 +92,9 @@ export function showMenu(onStart) {
     }
   };
 
-  hint.addEventListener('click', (e) => { e.stopPropagation(); showChoices(); });
-  btnCareer.addEventListener('click', (e) => { e.stopPropagation(); resumeAudio(); go('career'); });
-  btnTut.addEventListener('click', (e) => { e.stopPropagation(); resumeAudio(); go('tutorial'); });
-  root.addEventListener('pointerdown', () => { requestMobileAppMode(); }, { passive: true });
+  hint.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); showChoices(); });
+  btnCareer.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); resumeAudio(); go('career'); });
+  btnTut.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); resumeAudio(); go('tutorial'); });
+  root.addEventListener('pointerdown', () => { requestMobileAppMode(); }, { passive: false });
   window.addEventListener('keydown', onKey);
 }
