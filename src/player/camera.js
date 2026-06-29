@@ -3,8 +3,8 @@ import * as THREE from 'three';
 // Níveis de câmara (C cicla entre eles). Inclui 1ª pessoa.
 const PRESETS = [
   { name: 'Longe',      dist: 12, height: 2.8, fp: false },
-  { name: 'Normal',     dist: 5.8,  height: 1.9, fp: false },
-  { name: 'Perto',      dist: 5,  height: 1.8, fp: false },
+  { name: 'Normal',     dist: 3.25, height: 1.55, fp: false },
+  { name: 'Perto',      dist: 3.25, height: 1.55, fp: false },
   { name: '1ª Pessoa',  dist: 0,  height: 1.7, fp: true  },
 ];
 
@@ -15,7 +15,7 @@ export class OrbitCamera {
     this.input = input;
     this.target = new THREE.Vector3();
     this.yaw = 0;
-    this.pitch = 0.45;
+    this.pitch = 0.32;
     this.level = 1;
     this.distance = PRESETS[1].dist;
     this.height = PRESETS[1].height;
