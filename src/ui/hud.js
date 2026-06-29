@@ -4,7 +4,7 @@ import { CLUBS } from '../clubs.js';
 export class HUD {
   constructor() {
     const root = document.createElement('div');
-    root.style.cssText = `position:fixed;inset:0;pointer-events:none;font-family:system-ui,sans-serif;color:#fff;`;
+    root.style.cssText = `position:fixed;inset:0;z-index:90;pointer-events:none;font-family:system-ui,sans-serif;color:#fff;`;
     root.innerHTML = `
       <div style="position:absolute;top:16px;left:18px;text-shadow:0 2px 6px #0008;">
         <div style="font-weight:800;font-size:15px;letter-spacing:.5px;margin-bottom:4px;">HP</div>
@@ -44,8 +44,10 @@ export class HUD {
         font-size:13px;opacity:.7;text-shadow:0 1px 3px #000;text-align:center;">
         Joystick mover · RUN correr · SALTAR · CHUTAR · arrasta à direita p/ rodar</div>
 
-      <div id="banner" style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;
-        flex-direction:column;background:#0b1020dd;backdrop-filter:blur(6px);text-align:center;">
+      <div id="banner" style="position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;
+        flex-direction:column;background:#0b1020dd;backdrop-filter:blur(6px);text-align:center;
+        padding:max(12px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));
+        overflow:hidden;">
         <div id="bannerTitle" style="font-size:56px;font-weight:900;text-shadow:0 4px 18px #000a;"></div>
         <div id="bannerSub" style="font-size:20px;margin-top:8px;opacity:.9;"></div>
         <div id="bannerStats" style="margin-top:22px;display:flex;flex-direction:column;gap:12px;font-size:24px;font-weight:700;"></div>
@@ -131,13 +133,23 @@ export class HUD {
 
     this.el.bannerTitle.style.fontSize = 'clamp(30px, 8vw, 54px)';
     this.el.bannerSub.style.fontSize = 'clamp(14px, 3vw, 20px)';
-    this.el.bannerStats.style.marginTop = '18px';
-    this.el.bannerStats.style.gap = '8px';
-    this.el.bannerStats.style.fontSize = 'clamp(14px, 3.1vw, 22px)';
-    this.el.bannerBtn.style.fontSize = 'clamp(15px, 3.5vw, 22px)';
+    this.el.banner.style.justifyContent = 'center';
+    this.el.bannerTitle.style.fontSize = 'clamp(24px, 6vw, 42px)';
+    this.el.bannerTitle.style.lineHeight = '1';
+    this.el.bannerSub.style.fontSize = 'clamp(11px, 2.4vw, 16px)';
+    this.el.bannerSub.style.marginTop = '5px';
+    this.el.bannerStats.style.marginTop = 'clamp(8px, 2vh, 14px)';
+    this.el.bannerStats.style.gap = 'clamp(4px, 1.1vh, 7px)';
+    this.el.bannerStats.style.fontSize = 'clamp(11px, 2.5vw, 16px)';
+    this.el.bannerStats.style.maxHeight = '34vh';
+    this.el.bannerStats.style.overflowY = 'auto';
+    this.el.bannerStats.style.padding = '0 8px';
+    this.el.bannerBtn.style.marginTop = 'clamp(10px, 2vh, 16px)';
+    this.el.bannerBtn.style.fontSize = 'clamp(12px, 2.8vw, 18px)';
     this.el.bannerBtn.style.letterSpacing = '.5px';
     this.el.bannerBtn.style.borderWidth = '2px';
-    this.el.bannerBtn.style.padding = 'clamp(10px, 2vh, 14px) clamp(24px, 6vw, 40px)';
+    this.el.bannerBtn.style.borderRadius = '10px';
+    this.el.bannerBtn.style.padding = 'clamp(8px, 1.7vh, 12px) clamp(20px, 5vw, 34px)';
   }
 
   update(player, dt) {
@@ -246,10 +258,15 @@ export class HUD {
     this.el.bannerStats.innerHTML =
       row('💥', 'Inimigos destruídos', stats.enemiesKilled, stats.enemiesTotal, eP) +
       row('⚽', 'Bolas apanhadas', stats.ballsCollected, stats.ballsTotal, bP) +
-      `<div style="margin-top:6px;font-size:30px;">🏆 Nível: <b style="color:#9dff6a;">${lvl}%</b></div>` +
-      (eP === 100 && bP === 100 ? `<div style="color:#ffd23c;font-size:20px;">★ COMPLETO A 100%! ★</div>` : '');
+      `<div style="margin-top:4px;font-size:clamp(14px,3vw,20px);">🏆 Nível: <b style="color:#9dff6a;">${lvl}%</b></div>` +
+      (eP === 100 && bP === 100 ? `<div style="color:#ffd23c;font-size:clamp(12px,2.5vw,16px);">★ COMPLETO A 100%! ★</div>` : '');
     this.el.banner.style.display = 'flex';
+    this.el.banner.style.pointerEvents = 'auto';
+    this.el.bannerTitle.style.fontSize = 'clamp(24px, 6vw, 42px)';
+    this.el.bannerStats.style.maxHeight = '34vh';
+    this.el.bannerStats.style.overflowY = 'auto';
     this.el.bannerBtn.style.display = 'inline-block';
+    this.el.bannerBtn.style.pointerEvents = 'auto';
     const go = () => { window.removeEventListener('keydown', onKey); onContinue && onContinue(); };
     const onKey = (e) => { if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); go(); } };
     this.el.bannerBtn.onclick = go;

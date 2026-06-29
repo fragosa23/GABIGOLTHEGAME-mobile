@@ -21,6 +21,7 @@ export class Enemy {
     this.speed = opts.speed ?? 5.5;
     this.detect = opts.detect ?? 14;
     this.hp = opts.hp ?? 3;
+    this.radius = opts.radius ?? 0.7;
     this.facing = 0;
     this.wanderT = 0;
     this.wanderDir = new THREE.Vector3(1, 0, 0);
@@ -30,6 +31,12 @@ export class Enemy {
     this._runPhase = Math.random() * 6;
 
     this.model = this._build(opts);
+    if (opts.scale || opts.widthScale) {
+      const s = opts.scale ?? 1;
+      const w = opts.widthScale ?? s;
+      this.model.scale.set(w, s, w);
+      this.radius *= w;
+    }
     this.parts = this.model.userData.parts;
     this._baseHipsY = this.parts.hips.position.y;
     this.model.position.copy(pos);

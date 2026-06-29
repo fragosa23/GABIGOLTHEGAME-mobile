@@ -82,6 +82,42 @@ export function buildDragaoLevel(scene, physics, onReady) {
   goalAura.add(auraRingA, auraRingB, auraHalo);
   scene.add(goalAura);
 
+  const gate = new THREE.Group();
+  gate.position.set(goal.x, -5.8, goal.z + 1.4);
+  const gateMat = new THREE.MeshStandardMaterial({
+    color: 0x21040a,
+    roughness: 0.8,
+    metalness: 0.25,
+    emissive: 0x700011,
+    emissiveIntensity: 0.45,
+  });
+  const trimMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0204,
+    roughness: 0.75,
+    metalness: 0.5,
+    emissive: 0xff1028,
+    emissiveIntensity: 0.25,
+  });
+  const makeGateMesh = (geo, mat, pos) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(pos[0], pos[1], pos[2]);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    gate.add(m);
+    return m;
+  };
+  const leftDoor = makeGateMesh(new THREE.BoxGeometry(3.1, 6.5, 0.55), gateMat.clone(), [-1.55, 3.1, 0]);
+  const rightDoor = makeGateMesh(new THREE.BoxGeometry(3.1, 6.5, 0.55), gateMat.clone(), [1.55, 3.1, 0]);
+  makeGateMesh(new THREE.BoxGeometry(7.4, 0.5, 0.85), trimMat.clone(), [0, 6.55, 0.02]);
+  makeGateMesh(new THREE.BoxGeometry(0.5, 6.9, 0.85), trimMat.clone(), [-3.9, 3.35, 0.02]);
+  makeGateMesh(new THREE.BoxGeometry(0.5, 6.9, 0.85), trimMat.clone(), [3.9, 3.35, 0.02]);
+  const arch = makeGateMesh(new THREE.TorusGeometry(3.7, 0.18, 10, 48, Math.PI), trimMat.clone(), [0, 6.48, 0.04]);
+  arch.rotation.z = Math.PI;
+  const gateGlow = new THREE.PointLight(0xff1238, 0, 22, 2);
+  gateGlow.position.set(goal.x, 3.0, goal.z + 2.4);
+  scene.add(gateGlow);
+  scene.add(gate);
+
   // GLB visual
   new GLTFLoader().load(glbUrl, (gltf) => {
     const root = gltf.scene;
@@ -132,6 +168,31 @@ export function buildDragaoLevel(scene, physics, onReady) {
     spawn, facing: Math.PI,       // virado para -z (a baliza-objetivo)
     balls, enemies, triggers, goal,
     goalParts, goalGlow, goalAura, // peças/luz/aura da baliza para o brilho
+    gate: {
+      group: gate,
+      leftDoor,
+      rightDoor,
+      glow: gateGlow,
+      spawn: new THREE.Vector3(goal.x, 1.1, goal.z + 8),
+      active: false,
+      intro: false,
+      introT: 0,
+      spawnT: 0,
+      spawned: 0,
+      defeated: 0,
+      totalToDefeat: 30,
+      totalExtraSpawns: 26,
+      bossSpawned: false,
+      destroyed: false,
+      shards: [],
+    },
+    powerSpawn: {
+      pos: new THREE.Vector3(0, 1.5, 52.6),
+      interval: 15,
+      t: 15,
+      index: 0,
+      types: ['kick', 'speed', 'jump'],
+    },
     requireClear: true,           // a baliza só conta com todos os inimigos mortos
     goalActive: false,
   };

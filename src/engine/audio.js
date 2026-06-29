@@ -1,4 +1,6 @@
 import siiiUrl from '../../assets/siiii.mp3?url';
+import menuMusicUrl from '../../assets/Caldeira_Fury.mp3?url';
+import dragaoMusicUrl from '../../assets/caldeira-bola.mp3?url';
 
 let ctx = null;
 function ac() {
@@ -10,43 +12,75 @@ export function resumeAudio() {
   const c = ac();
   if (c.state === 'suspended') c.resume();
   unlockSiii();
+  resumeWantedMusic();
 }
 
-let menuAmb = null;
-export function startMenuAmbience() {
-  if (menuAmb) return;
-  const c = ac();
-  if (c.state === 'suspended') c.resume();
-  const bed = createSoftStadiumBed(c, { volume: 0.045, swell: 0.016, lowpass: 780 });
-  const o1 = c.createOscillator();
-  const o2 = c.createOscillator();
-  const dg = c.createGain();
-  o1.type = 'sine'; o1.frequency.value = 82;
-  o2.type = 'sine'; o2.frequency.value = 123;
-  dg.gain.value = 0.0001;
-  o1.connect(dg); o2.connect(dg); dg.connect(c.destination);
-  o1.start(); o2.start();
-  bed.g.gain.setValueAtTime(0.0001, c.currentTime);
-  bed.g.gain.linearRampToValueAtTime(0.045, c.currentTime + 1.5);
-  dg.gain.linearRampToValueAtTime(0.022, c.currentTime + 1.8);
-  menuAmb = { ...bed, dg, o1, o2 };
+const menuMusic = new Audio(menuMusicUrl);
+menuMusic.preload = 'auto';
+menuMusic.volume = 0.62;
+menuMusic.loop = true;
+
+const dragaoMusic = new Audio(dragaoMusicUrl);
+dragaoMusic.preload = 'auto';
+dragaoMusic.volume = 0.58;
+dragaoMusic.loop = true;
+
+let wantedMusic = null;
+let menuRestartTimer = null;
+
+function tryPlay(audio) {
+  const p = audio.play();
+  if (p?.catch) p.catch(() => {});
+}
+
+function stopAudio(audio) {
+  audio.pause();
+  audio.currentTime = 0;
+}
+
+function stopMenuRestart() {
+  if (!menuRestartTimer) return;
+  clearInterval(menuRestartTimer);
+  menuRestartTimer = null;
+}
+
+function resumeWantedMusic() {
+  if (wantedMusic === 'menu') tryPlay(menuMusic);
+  if (wantedMusic === 'dragao') tryPlay(dragaoMusic);
+}
+
+export function startMenuAmbience(options = {}) {
+  wantedMusic = 'menu';
+  stopMenuRestart();
+  stopAudio(dragaoMusic);
+  menuMusic.loop = !options.restartEvery10;
+  menuMusic.currentTime = 0;
+  tryPlay(menuMusic);
+  if (options.restartEvery10) {
+    menuRestartTimer = setInterval(() => {
+      menuMusic.currentTime = 0;
+      tryPlay(menuMusic);
+    }, 10000);
+  }
 }
 
 export function stopMenuAmbience() {
-  if (!menuAmb) return;
-  const c = ac();
-  const t = c.currentTime;
-  menuAmb.g.gain.cancelScheduledValues(t);
-  menuAmb.g.gain.setValueAtTime(menuAmb.g.gain.value, t);
-  menuAmb.g.gain.linearRampToValueAtTime(0.0001, t + 0.8);
-  menuAmb.dg.gain.linearRampToValueAtTime(0.0001, t + 0.8);
-  const ref = menuAmb;
-  menuAmb = null;
-  setTimeout(() => {
-    try {
-      ref.src.stop(); ref.lfo.stop(); ref.swell.stop(); ref.o1.stop(); ref.o2.stop();
-    } catch (e) {}
-  }, 900);
+  if (wantedMusic === 'menu') wantedMusic = null;
+  stopMenuRestart();
+  stopAudio(menuMusic);
+}
+
+export function startGameplayMusic(mode) {
+  if (mode === 'tutorial') {
+    startMenuAmbience({ restartEvery10: true });
+    return;
+  }
+  wantedMusic = 'dragao';
+  stopMenuRestart();
+  stopAudio(menuMusic);
+  dragaoMusic.loop = true;
+  if (dragaoMusic.paused) dragaoMusic.currentTime = 0;
+  tryPlay(dragaoMusic);
 }
 
 let crowd = null;
