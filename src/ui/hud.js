@@ -58,6 +58,7 @@ export class HUD {
       </div>`;
     document.body.appendChild(root);
     this.el = {
+      status: root.firstElementChild,
       hpbar: root.querySelector('#hpbar'),
       coins: root.querySelector('#coins'),
       powers: root.querySelector('#powers'),
@@ -77,6 +78,11 @@ export class HUD {
     this._applyMobileScale(root);
     this._msgTimer = 0; this._popTimer = 0; this._camTimer = 0;
     this._lastPowers = -1;
+    this.setGameplayVisible(false);
+  }
+
+  setGameplayVisible(visible) {
+    if (this.el.status) this.el.status.style.display = visible ? 'block' : 'none';
   }
 
   _applyMobileScale(root) {

@@ -114,7 +114,9 @@ function startGateIntro() {
   phase = 'gateIntro';
   player.controllable = false;
   level.gate.intro = true;
+  level.gate.pending = false;
   level.gate.introT = 0;
+  level.gate.group.visible = true;
   level.gate.group.position.y = -5.8;
   level.gate.glow.intensity = 0;
   centerCallout('O PORTAO MALEFICO DESPERTA', '#ff4d5d', '#ff1238');
@@ -196,7 +198,7 @@ function updateGateEvent(dt) {
   if (!g) return;
 
   for (const e of level.enemies) {
-    if (!e.alive && !e._countedDefeat) {
+    if (e.isGateSpawn && !e.alive && !e._countedDefeat) {
       e._countedDefeat = true;
       g.defeated++;
     }
@@ -279,6 +281,11 @@ function loop() {
     updateGateEvent(dt);
     updatePowerSpawns(dt);
 
+    if (level.gate?.pending && level.enemies.some((e) => e.isInitialEnemy) &&
+        level.enemies.filter((e) => e.isInitialEnemy).every((e) => !e.alive)) {
+      startGateIntro();
+    }
+
     // feedback quando perde poder / HP
     if (player.powerCount < prevPowers) hud.message('⚠️ Roubaram-te um poder!', 2.5);
     else if (player.hp < prevHp) hud.message('💔 Sem poderes — estás a perder HP! Apanha bolas.', 2.5);
@@ -319,6 +326,7 @@ function loop() {
   if (phase === 'intro') { introT += dt; introCamera(); }
   else if (phase === 'gateIntro') updateGateIntro(dt);
   else if (phase === 'play') orbit.update(dt);
+  hud.setGameplayVisible(phase === 'play' && !won);
   hud.update(player, dt);
   input.endFrame();
   renderer.render(scene, camera);
@@ -332,10 +340,7 @@ function startIntro() {
   runIntro(
     ['Parece que o estádio foi invadido por jogadores do Benfica que viraram monstros!',
      'Vou ter de salvar o futebol!'],
-    () => {
-      if (level?.gate) startGateIntro();
-      else { phase = 'play'; player.controllable = true; orbit.snapBehind(player.facing); }
-    } // câmara nas costas
+    () => { phase = 'play'; player.controllable = true; orbit.snapBehind(player.facing); } // câmara nas costas
   );
 }
 

@@ -84,6 +84,7 @@ export function buildDragaoLevel(scene, physics, onReady) {
 
   const gate = new THREE.Group();
   gate.position.set(goal.x, -5.8, goal.z + 1.4);
+  gate.visible = false;
   const gateMat = new THREE.MeshStandardMaterial({
     color: 0x21040a,
     roughness: 0.8,
@@ -146,10 +147,16 @@ export function buildDragaoLevel(scene, physics, onReady) {
   }, undefined, (e) => { console.error('Falha a carregar dragao.glb', e); onReady && onReady(null); });
 
   // inimigos (Benfica) no relvado
-  enemies.push(new Enemy(scene, P(-20, 8, 0), { number: 7 }));
-  enemies.push(new Enemy(scene, P(10, -6, 0), { number: 10, speed: 6 }));
-  enemies.push(new Enemy(scene, P(0, 30, 0), { number: 9, detect: 18 }));
-  enemies.push(new Enemy(scene, P(18, 20, 0), { number: 4 }));
+  const initialEnemies = [
+    new Enemy(scene, P(-30, 28, 0), { number: 7, detect: 20 }),
+    new Enemy(scene, P(28, 18, 0), { number: 10, speed: 6, detect: 20 }),
+    new Enemy(scene, P(-24, -18, 0), { number: 9, detect: 20 }),
+    new Enemy(scene, P(26, -30, 0), { number: 4, detect: 20 }),
+  ];
+  for (const e of initialEnemies) {
+    e.isInitialEnemy = true;
+    enemies.push(e);
+  }
 
   // bolas-poder: espalhadas pelo relvado
   balls.push(new PowerBall(scene, P(-25, -25, 1.5), 'kick'));
@@ -173,15 +180,16 @@ export function buildDragaoLevel(scene, physics, onReady) {
       leftDoor,
       rightDoor,
       glow: gateGlow,
-      spawn: new THREE.Vector3(goal.x, 1.1, goal.z + 8),
+      spawn: new THREE.Vector3(goal.x, 0, goal.z + 8),
       active: false,
+      pending: true,
       intro: false,
       introT: 0,
       spawnT: 0,
       spawned: 0,
       defeated: 0,
       totalToDefeat: 30,
-      totalExtraSpawns: 26,
+      totalExtraSpawns: 30,
       bossSpawned: false,
       destroyed: false,
       shards: [],
