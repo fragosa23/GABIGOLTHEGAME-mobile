@@ -40,7 +40,10 @@ export class Input {
       }
     });
 
-    if (this.touchControlsEnabled) this._setupTouchControls(domElement);
+    if (this.touchControlsEnabled) {
+      this._disableMobileZoom();
+      this._setupTouchControls(domElement);
+    }
   }
 
   down(code) { return this.keys.has(code); }
@@ -48,6 +51,19 @@ export class Input {
 
   _wantsTouchControls() {
     return window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth <= 920;
+  }
+
+  _disableMobileZoom() {
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd < 350) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
+    document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+    for (const eventName of ['gesturestart', 'gesturechange', 'gestureend']) {
+      document.addEventListener(eventName, (e) => e.preventDefault(), { passive: false });
+    }
   }
 
   _pressTouch(name) {

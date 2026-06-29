@@ -2,7 +2,7 @@
 <html lang="pt">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -21,6 +21,8 @@
         touch-action: none;
         overscroll-behavior: none;
         user-select: none;
+        -webkit-user-select: none;
+        -webkit-text-size-adjust: 100%;
       }
       #app { width: 100vw; height: 100vh; display: block; }
       canvas { display: block; touch-action: none; }
@@ -81,33 +83,51 @@
 
       .mobile-actions {
         position: absolute;
-        right: max(16px, env(safe-area-inset-right));
-        bottom: max(20px, env(safe-area-inset-bottom));
-        width: min(290px, 46vw);
+        right: max(12px, env(safe-area-inset-right));
+        bottom: max(12px, env(safe-area-inset-bottom));
+        width: min(178px, 31vw);
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        align-items: end;
-        gap: clamp(8px, 1.5vw, 14px);
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: repeat(2, auto);
+        align-items: center;
+        justify-items: center;
+        gap: clamp(6px, 1.2vw, 10px);
         pointer-events: auto;
         touch-action: none;
       }
 
       .mobile-btn {
-        width: clamp(58px, 10vw, 76px);
-        height: clamp(58px, 10vw, 76px);
+        width: clamp(52px, 8.4vw, 66px);
+        height: clamp(52px, 8.4vw, 66px);
         aspect-ratio: 1;
-        border: 2px solid #ffffff6f;
+        border: 2px solid #ffffff52;
         border-radius: 50%;
         color: #fff;
+        opacity: .66;
         background:
-          radial-gradient(circle at 35% 24%, #ffffff40, #ffffff00 28%),
-          linear-gradient(180deg, #2b385ab5, #11182b7d);
-        box-shadow: 0 8px 18px #0007, inset 0 4px 12px #ffffff18, inset 0 -8px 14px #0006;
+          radial-gradient(circle at 35% 24%, #ffffff28, #ffffff00 28%),
+          linear-gradient(180deg, #2b385a82, #11182b5f);
+        box-shadow: 0 8px 18px #0005, inset 0 4px 12px #ffffff12, inset 0 -8px 14px #0005;
         font-size: clamp(9px, 1.6vw, 11px);
         font-weight: 900;
         letter-spacing: 0;
         text-shadow: 0 2px 4px #000b;
         touch-action: none;
+      }
+
+      .mobile-btn[data-action="run"] {
+        grid-column: 2;
+        grid-row: 1;
+      }
+
+      .mobile-btn[data-action="jump"] {
+        grid-column: 1;
+        grid-row: 2;
+      }
+
+      .mobile-btn[data-action="attack"] {
+        grid-column: 2;
+        grid-row: 2;
       }
 
       .mobile-btn-small {
@@ -116,12 +136,13 @@
 
       .mobile-btn-kick {
         background:
-          radial-gradient(circle at 35% 24%, #ffffff45, #ffffff00 28%),
-          linear-gradient(180deg, #ff7a45b8, #c628288c);
+          radial-gradient(circle at 35% 24%, #ffffff2d, #ffffff00 28%),
+          linear-gradient(180deg, #ff7a4588, #c6282868);
       }
 
       .mobile-btn.is-active {
         border-color: #9dff6a;
+        opacity: .82;
         background:
           radial-gradient(circle at 35% 24%, #ffffff4d, #ffffff00 28%),
           linear-gradient(180deg, #35ad5acf, #17672fac);
@@ -166,12 +187,12 @@
         }
 
         .mobile-actions {
-          width: min(250px, 54vw);
+          width: min(160px, 45vw);
         }
 
         .mobile-btn {
-          width: clamp(54px, 15vw, 68px);
-          height: clamp(54px, 15vw, 68px);
+          width: clamp(50px, 13vw, 62px);
+          height: clamp(50px, 13vw, 62px);
         }
       }
     </style>
