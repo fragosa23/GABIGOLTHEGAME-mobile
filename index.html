@@ -249,5 +249,17 @@
     <div id="app"></div>
     <div id="portraitGuard">Roda o telemovel para horizontal</div>
     <script type="module" src="/src/main.js"></script>
+    <script>
+      // Esconde sempre o rig procedural Three.js: visualmente só fica o player.glb do Blender.
+      (() => {
+        const timer = setInterval(() => {
+          const p = window.__player;
+          if (!p) return;
+          if (p.rig) p.rig.visible = false;
+          if (p.pmodel && !p.pmodel.ready) p.useModel = true;
+          if (p.pmodel?.ready) clearInterval(timer);
+        }, 30);
+      })();
+    </script>
   </body>
 </html>
