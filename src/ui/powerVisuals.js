@@ -12,40 +12,22 @@ function disposeObject(obj) {
   });
 }
 
-function makeEnergyAura(color, size) {
+function makeSimpleAura(color, size) {
   const group = new THREE.Group();
-  group.userData.energyAura = true;
+  group.userData.simpleAura = true;
 
-  const aura = new THREE.Mesh(
-    new THREE.SphereGeometry(size * 1.42, 24, 24),
-    new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.22,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    })
-  );
-  aura.userData.auraBody = true;
-  group.add(aura);
-
-  const ringMat = new THREE.MeshBasicMaterial({
+  const mat = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.72,
+    opacity: 0.75,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
 
-  const r1 = new THREE.Mesh(new THREE.TorusGeometry(size * 1.42, size * 0.055, 8, 48), ringMat.clone());
-  r1.rotation.x = Math.PI / 2;
-  r1.userData.auraRing = 1;
-  group.add(r1);
-
-  const r2 = new THREE.Mesh(new THREE.TorusGeometry(size * 1.72, size * 0.038, 8, 48), ringMat.clone());
-  r2.rotation.y = Math.PI / 2.7;
-  r2.userData.auraRing = -1;
-  group.add(r2);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(size * 1.45, size * 0.045, 6, 32), mat);
+  ring.rotation.x = Math.PI / 2;
+  ring.userData.simpleAuraRing = true;
+  group.add(ring);
 
   return group;
 }
@@ -81,18 +63,13 @@ function installPlayerOrbitPatch(player) {
 
       const baseSize = count >= 3 ? 0.31 : count === 2 ? 0.235 : 0.18;
       const ball = new THREE.Mesh(
-        new THREE.SphereGeometry(baseSize, 22, 22),
+        new THREE.SphereGeometry(baseSize, 18, 18),
         new THREE.MeshBasicMaterial({ map: ballTexture(), color: cfg.ball })
       );
       ball.userData.powerBall = true;
       group.add(ball);
 
-      if (count >= 3) {
-        group.add(makeEnergyAura(cfg.ring, baseSize));
-        const light = new THREE.PointLight(cfg.ring, 0.75, 2.8);
-        light.userData.powerLight = true;
-        group.add(light);
-      }
+      if (count >= 3) group.add(makeSimpleAura(cfg.ring, baseSize));
 
       const a = (i / Math.max(n, 1)) * Math.PI * 2;
       const r = n === 1 ? 0.88 : n === 2 ? 0.98 : 1.12;
@@ -106,6 +83,7 @@ function installPlayerOrbitPatch(player) {
     }
     const top = this.topClub || active[active.length - 1];
     this.glow.color.setHex(CLUBS[top].ring);
+    this.glow.intensity = Math.min(this.glow.intensity, 0.45);
   };
 
   player.refreshPowers();
@@ -126,14 +104,14 @@ function renderHudPowers(hud, player) {
     const count = Math.max(0, Math.min(3, player.powerCounts[key] || 0));
     const ready = count >= 3;
     const opacity = count > 0 ? 1 : 0.28;
-    const scale = ready ? 1.12 : 1;
+    const scale = ready ? 1.08 : 1;
     const shadow = ready
-      ? `0 0 8px ${cfg.ui}, 0 0 18px ${cfg.ui}, 0 0 30px ${cfg.ui}, inset 0 0 12px ${cfg.ui}`
+      ? `0 0 8px ${cfg.ui}, 0 0 16px ${cfg.ui}`
       : count > 0
-        ? `0 0 10px ${cfg.ui}99`
+        ? `0 0 8px ${cfg.ui}99`
         : '0 0 4px #0008';
     const label = count === 0 ? '' : count < 3 ? `<span style="margin-left:3px;font-weight:900;font-size:clamp(10px,2vw,13px);text-shadow:0 2px 5px #000;">x${count}</span>` : '';
-    const aura = ready ? `<span style="position:absolute;inset:-7px;border-radius:50%;border:2px solid ${cfg.ui};box-shadow:0 0 14px ${cfg.ui},0 0 28px ${cfg.ui};animation:hudspin 1.4s linear infinite,hudpulse .75s ease-in-out infinite;"></span>` : '';
+    const aura = ready ? `<span style="position:absolute;inset:-5px;border-radius:50%;border:2px solid ${cfg.ui};box-shadow:0 0 12px ${cfg.ui};animation:hudpulse .85s ease-in-out infinite;"></span>` : '';
 
     return `<div title="${cfg.power}" style="position:relative;display:flex;align-items:center;gap:2px;opacity:${opacity};transform:scale(${scale});">
       <div style="position:relative;width:clamp(25px,5vw,34px);height:clamp(25px,5vw,34px);border-radius:50%;
@@ -161,18 +139,19 @@ function installHudPatch(hud) {
 function animatePowerVisuals() {
   const player = window.__player;
   if (player?.orbit3) {
-    const t = performance.now() * 0.004;
+    const t = performance.now() * 0.0035;
     for (const group of player.orbit3.children) {
       if (!group.userData.powerVisual) continue;
       const count = group.userData.powerCount || 1;
       if (count >= 3) {
-        const pulse = 1 + Math.sin(t * 2.2) * 0.09;
+        const pulse = 1 + Math.sin(t * 1.9) * 0.04;
         group.scale.setScalar(pulse);
-        group.traverse((child) => {
-          if (child.userData.auraRing) child.rotation.z += child.userData.auraRing * 0.055;
-          if (child.userData.auraBody && child.material) child.material.opacity = 0.17 + Math.sin(t * 2.8) * 0.07;
-          if (child.userData.powerLight) child.intensity = 0.65 + Math.sin(t * 3.2) * 0.25;
-        });
+        for (const child of group.children) {
+          if (child.userData.simpleAura) {
+            child.rotation.y += 0.018;
+            child.rotation.z += 0.012;
+          }
+        }
       } else {
         group.scale.setScalar(1);
       }
