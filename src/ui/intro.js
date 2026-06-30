@@ -1,3 +1,4 @@
+import './pause.css';
 import { playWhistle } from '../engine/audio.js';
 import { invadedPortrait, savePortrait } from './introPortraits.js';
 
