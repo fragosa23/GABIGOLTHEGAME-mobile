@@ -7,6 +7,7 @@ import { ballTexture } from '../entities/ball.js';
 import { playJump, playSiii, playKick, playHurt, playPickup } from '../engine/audio.js';
 
 const SHIRT = 0x9fd6ff; // azul claro (equipamento base G.CALDEIRA)
+const POWER_KEYS = ['speed', 'kick', 'jump'];
 
 // Riscas verticais (Porto): azul/branco.
 let _stripeTex = null;
@@ -47,10 +48,16 @@ export class Player {
     this.hurtTimer = 0; this._jumpEvent = false; this._kickEvent = false; this._hurtEvent = false;
     this.sprinting = false; this.controllable = false; // ativado quando o jogo começa (após a intro)
 
-    // bolas de futebol a orbitar o jogador — uma por poder (até 3)
+    // bolas de futebol a orbitar o jogador — agora podem acumular até 3 por cor
     this.orbit3 = new THREE.Group(); this.orbit3.position.y = 1.15; this.model.add(this.orbit3);
     this.glow = new THREE.PointLight(0xffffff, 0, 6); this.glow.position.y = 1.0; this.model.add(this.glow);
-    // efeito de "chute forte": onda que expande à frente do jogador
+    this.shieldFx = new THREE.Mesh(
+      new THREE.SphereGeometry(1.15, 24, 24),
+      new THREE.MeshBasicMaterial({ color: 0x4aa3ff, transparent: true, opacity: 0, wireframe: true, depthWrite: false })
+    );
+    this.shieldFx.visible = false; this.model.add(this.shieldFx);
+
+    // efeito de chuto forte / especial vermelho
     this.kickFx = new THREE.Mesh(
       new THREE.TorusGeometry(0.4, 0.08, 10, 36),
       new THREE.MeshBasicMaterial({ color: 0xff5530, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })
@@ -67,8 +74,15 @@ export class Player {
     this.facing = 0;
     this.jumps = 0;
 
+    this.powerCounts = { speed: 0, kick: 0, jump: 0 };
     this.powers = [];
+    this.lastPower = null;
+    this.baseMaxHp = 100;
     this.maxHp = 100; this.hp = 100; this.invuln = 0; this.coins = 0;
+    this.giantT = 0;
+    this.greenMegaLanding = false;
+    this.didDoubleJump = false;
+    this.landingShockwave = null;
 
     this.kickCd = 0; this.kickTimer = 0; this.kickActive = false; this.kickHits = new Set();
     this._idleT = Math.random() * 10; this._runPhase = 0;
@@ -79,14 +93,22 @@ export class Player {
 
   setSpawn(v) { this._spawn = v.clone(); this.position.copy(v); }
   get powerCount() { return this.powers.length; }
-  get topClub() { return this.powers[this.powers.length - 1] || null; }
-  // habilidades por cor de bola (um poder de cada, no máximo)
-  get hasSpeed() { return this.powers.includes('speed'); } // PORTO (azul)
-  get hasKick() { return this.powers.includes('kick'); }   // BRAGA (vermelho)
-  get hasJump() { return this.powers.includes('jump'); }   // S.PEDRO (verde)
-  get maxJumps() { return this.hasJump ? 2 : 1; }           // duplo salto só com o poder
-  get kickRange() { return 3.4 + (this.hasKick ? 1.2 : 0); }
-  get kickForce() { return this.hasKick ? 2 : 1; }          // chute forte = dobro do dano/knockback
+  get topClub() { return this.lastPower || this.powers[this.powers.length - 1] || null; }
+  get blue() { return this.powerCounts.speed || 0; }
+  get red() { return this.powerCounts.kick || 0; }
+  get green() { return this.powerCounts.jump || 0; }
+  get hasSpeed() { return this.blue > 0; }
+  get hasShield() { return this.blue >= 2; }
+  get hasKick() { return this.red > 0; }
+  get hasJump() { return this.green > 0; }
+  get maxJumps() { return this.hasJump ? 2 : 1; }
+  get kickRange() { return 3.4 + (this.red > 0 ? 0.8 : 0) + (this.red >= 2 ? 0.4 : 0); }
+  get kickDamage() { return this.red >= 2 ? 3 : this.red >= 1 ? 2 : 1; }
+  get kickForce() { return this.red >= 2 ? 2.2 : this.red >= 1 ? 1.7 : 1; }
+  get specialReadyType() {
+    if (this.lastPower && this.powerCounts[this.lastPower] >= 3) return this.lastPower;
+    return POWER_KEYS.find((k) => this.powerCounts[k] >= 3) || null;
+  }
 
   update(dt) {
     this._jumpEvent = false;
@@ -102,8 +124,9 @@ export class Player {
     const len = Math.hypot(ax.x, ax.y);
     const fwd = this.orbit.forward(), right = this.orbit.right();
     this.sprinting = this.input.sprint() && len > 0.001;
-    // corrida normal por defeito; o poder AZUL (velocidade) torna-o mais rápido
-    const speed = (this.sprinting ? 7.5 : 5) * (this.hasSpeed ? 1.5 : 1);
+    const speedBoost = this.hasSpeed ? 1.5 : 1;
+    const giantBoost = this.giantT > 0 ? 1.12 : 1;
+    const speed = (this.sprinting ? 7.5 : 5) * speedBoost * giantBoost;
     const accel = 60, friction = 12;
 
     const wish = new THREE.Vector3();
@@ -119,8 +142,7 @@ export class Player {
     if (this.grounded) this.jumps = 0;
     if (this.input.jump() && this.jumps < this.maxJumps) {
       this.jumps++; this.grounded = false; this._jumpEvent = true;
-      // 2º salto só existe com o poder VERDE (maxJumps=2): salto duplo + SIUUU
-      if (this.jumps >= 2) { this.velocity.y = 15; playSiii(); }
+      if (this.jumps >= 2) { this.velocity.y = 15; this.didDoubleJump = true; playSiii(); }
       else { this.velocity.y = 14; playJump(); }
     }
     return this._postUpdate(dt);
@@ -128,26 +150,40 @@ export class Player {
 
   // gravidade + física + modelo + animação (corre sempre, com ou sem controlo)
   _postUpdate(dt) {
+    const wasGrounded = this.grounded;
     this.velocity.y += GRAVITY * dt;
     if (this.velocity.y < -45) this.velocity.y = -45;
     this.physics.moveAndCollide(this, dt);
+    if (!wasGrounded && this.grounded) this._onLand();
     if (this.position.y < -25) this.respawn(true);
 
     this.model.position.set(this.position.x, this.position.y - this.half.y, this.position.z);
     this.model.rotation.y = THREE.MathUtils.damp(this.model.rotation.y, this.facing, 12, dt);
 
     if (this.hurtTimer > 0) this.hurtTimer -= dt;
-    // temporizadores de chuto: têm de correr sempre (antes só viviam em _animate,
-    // que deixa de ser chamado com o modelo 3D -> o chuto bloqueava após o 1º)
     if (this.kickCd > 0) this.kickCd -= dt;
     if (this.kickTimer > 0) { this.kickTimer -= dt; if (this.kickTimer <= 0) this.kickActive = false; }
+
+    if (this.giantT > 0) {
+      this.giantT -= dt;
+      this.maxHp = 180;
+      this.model.scale.setScalar(THREE.MathUtils.damp(this.model.scale.x, 1.55, 8, dt));
+      if (this.giantT <= 0) {
+        this.maxHp = this.baseMaxHp;
+        this.hp = Math.min(this.hp, this.maxHp);
+      }
+    } else {
+      this.maxHp = this.baseMaxHp;
+      this.model.scale.setScalar(THREE.MathUtils.damp(this.model.scale.x, 1, 8, dt));
+    }
+
     if (this.useModel) {
       const sp = Math.hypot(this.velocity.x, this.velocity.z);
       this.pmodel.update(dt, {
         speed: sp,
         grounded: this.grounded,
         sprint: this.sprinting,
-        fastRun: this.hasSpeed, // corrida Naruto só com o poder de velocidade (PORTO)
+        fastRun: this.hasSpeed,
         jumps: this.jumps,
         jumpEvent: this._jumpEvent,
         kickEvent: this._kickEvent,
@@ -156,7 +192,6 @@ export class Player {
     } else {
       this._animate(dt);
     }
-    // eventos de animação são "one-shot": consumir após passar ao modelo
     this._kickEvent = false; this._hurtEvent = false;
 
     // bolas-poder a orbitar o jogador
@@ -164,8 +199,13 @@ export class Player {
       this.orbit3.rotation.y += dt * 1.8;
       this.orbit3.position.y = 1.15 + Math.sin(performance.now() * 0.003) * 0.06;
       for (const b of this.orbit3.children) b.rotation.y += dt * 4;
-      this.glow.intensity = (0.4 + this.powerCount * 0.35) * (1 + Math.sin(performance.now() * 0.006) * 0.2);
+      this.glow.intensity = (0.35 + Math.min(this.powerCount, 6) * 0.22) * (1 + Math.sin(performance.now() * 0.006) * 0.2);
     }
+
+    this.shieldFx.visible = this.hasShield;
+    this.shieldFx.material.opacity = this.hasShield ? 0.18 + Math.sin(performance.now() * 0.006) * 0.06 : 0;
+    this.shieldFx.rotation.y += dt * 0.8;
+
     // efeito de chute forte (onda a expandir à frente)
     if (this.kickFxT > 0) {
       this.kickFxT -= dt;
@@ -187,6 +227,27 @@ export class Player {
     }
   }
 
+  _onLand() {
+    if (this.greenMegaLanding) {
+      this.greenMegaLanding = false;
+      this.didDoubleJump = false;
+      this.landingShockwave = { damage: 3, radius: 18, force: 5.5, color: 0x27c24a, mega: true };
+      return;
+    }
+    if (this.didDoubleJump && this.green >= 2) {
+      this.didDoubleJump = false;
+      this.landingShockwave = { damage: 1, radius: 6.5, force: 1.6, color: 0x27c24a, mega: false };
+    } else {
+      this.didDoubleJump = false;
+    }
+  }
+
+  consumeLandingShockwave() {
+    const s = this.landingShockwave;
+    this.landingShockwave = null;
+    return s;
+  }
+
   // animação por "pose alvo" + damp: idle / run, com chuto sobreposto.
   _animate(dt) {
     const p = this.parts;
@@ -195,7 +256,6 @@ export class Player {
     this._idleT += dt;
     if (moving) this._runPhase += dt * (6 + sp * 0.4);
 
-    // pose alvo (canais não definidos = 0)
     const T = {
       torsoX: 0, torsoY: 0, torsoZ: 0, headY: 0,
       lShX: 0, lShZ: 0, rShX: 0, rShZ: 0, lFore: -0.12, rFore: -0.12,
@@ -206,7 +266,7 @@ export class Player {
       const ph = this._runPhase, s = Math.sin(ph), c = Math.cos(ph);
       T.torsoX = 0.12 + Math.abs(s) * 0.05;
       T.lShX = s * 0.75; T.rShX = -s * 0.75;
-      T.lFore = -0.9 - Math.max(0, s) * 0.4; T.rFore = -0.9 - Math.max(0, -s) * 0.4; // cotovelos dobrados
+      T.lFore = -0.9 - Math.max(0, s) * 0.4; T.rFore = -0.9 - Math.max(0, -s) * 0.4;
       T.lHipX = -s * 0.75; T.rHipX = s * 0.75;
       T.lShinX = Math.max(0, c) * 0.9; T.rShinX = Math.max(0, -c) * 0.9;
       T.hipsY = this._baseHipsY + Math.abs(s) * 0.03;
@@ -217,12 +277,11 @@ export class Player {
       T.lShX = Math.sin(t) * 0.05; T.rShX = -Math.sin(t) * 0.05;
     }
 
-    // chuto sobreposto (perna direita). Os temporizadores são decrementados em update().
     let kicking = false;
     if (this.kickTimer > 0) {
       kicking = true;
       const prog = Math.min(Math.max(1 - this.kickTimer / 0.22, 0), 1);
-      const k = Math.sin(prog * Math.PI); // 0→1→0
+      const k = Math.sin(prog * Math.PI);
       T.torsoY = -0.25 * k;
       T.lShZ = -0.55 * k; T.rShZ = 0.45 * k;
       T.lHipX = -0.25 * k;
@@ -245,25 +304,37 @@ export class Player {
   tryKick() {
     if (this.kickCd > 0) return false;
     this.kickCd = 0.45; this.kickTimer = 0.22; this.kickActive = true; this.kickHits.clear();
-    this._kickEvent = true; // dispara a animação de chuto (toca por inteiro)
+    this._kickEvent = true;
     playKick();
-    if (this.hasKick) this.kickFxT = 0.35; // onda de chute forte
+    if (this.red > 0) this.kickFxT = 0.35;
     return true;
   }
 
-  // cada poder = uma bola de futebol dessa cor a orbitar (um de cada, máx 3)
   givePower(club) {
-    if (!this.powers.includes(club)) this.powers.push(club);
+    if (!this.powerCounts[club] && this.powerCounts[club] !== 0) return;
+    this.powerCounts[club] = Math.min(3, this.powerCounts[club] + 1);
+    this.lastPower = club;
     this.refreshPowers(); playPickup();
   }
-  loseTopPower() {
-    const lost = this.powers.pop() || null;
+
+  consumePower(club, n = 1) {
+    if ((this.powerCounts[club] || 0) < n) return false;
+    this.powerCounts[club] -= n;
+    if (this.lastPower === club && this.powerCounts[club] <= 0) this.lastPower = this.powers[this.powers.length - 1] || null;
     this.refreshPowers();
-    return lost;
+    return true;
+  }
+
+  loseTopPower() {
+    const key = [...this.powers].reverse().find((k) => this.powerCounts[k] > 0) || null;
+    if (key) this.consumePower(key, 1);
+    return key;
   }
 
   refreshPowers() {
-    // reconstruir as bolas a orbitar
+    this.powers = [];
+    for (const k of POWER_KEYS) for (let i = 0; i < this.powerCounts[k]; i++) this.powers.push(k);
+
     while (this.orbit3.children.length) {
       const c = this.orbit3.children.pop();
       c.geometry.dispose(); c.material.dispose(); this.orbit3.remove(c);
@@ -271,15 +342,43 @@ export class Player {
     const n = this.powers.length;
     this.powers.forEach((key, i) => {
       const m = new THREE.Mesh(
-        new THREE.SphereGeometry(0.17, 16, 16),
+        new THREE.SphereGeometry(0.15, 16, 16),
         new THREE.MeshBasicMaterial({ map: ballTexture(), color: CLUBS[key].ball })
       );
       const a = (i / Math.max(n, 1)) * Math.PI * 2;
-      m.position.set(Math.cos(a) * 0.95, 0, Math.sin(a) * 0.95);
+      const r = n > 6 ? 1.12 : 0.95;
+      const y = n > 6 ? ((i % 2) * 0.18 - 0.09) : 0;
+      m.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
       this.orbit3.add(m);
     });
     if (n === 0) { this.glow.intensity = 0; return; }
-    this.glow.color.setHex(CLUBS[this.topClub].ring);
+    this.glow.color.setHex(CLUBS[this.topClub || this.powers[0]].ring);
+  }
+
+  activateSpecial(type) {
+    if (!type || this.powerCounts[type] < 3) return false;
+    this.consumePower(type, 3);
+    if (type === 'speed') {
+      this.giantT = 20;
+      this.maxHp = 180;
+      this.hp = Math.min(this.maxHp, this.hp + 80);
+      return true;
+    }
+    if (type === 'kick') {
+      this.tryKick();
+      this.kickFxT = 0.35;
+      return true;
+    }
+    if (type === 'jump') {
+      this.greenMegaLanding = true;
+      this.didDoubleJump = false;
+      this.grounded = false;
+      this.jumps = 2;
+      this.velocity.y = 25;
+      playSiii();
+      return true;
+    }
+    return false;
   }
 
   hit(enemyPos) {
@@ -289,7 +388,12 @@ export class Player {
     away.normalize().multiplyScalar(7);
     this.velocity.x = away.x; this.velocity.z = away.z; this.velocity.y = 6;
     this.invuln = 1.1; this.hurtTimer = 0.55; this._hurtEvent = true; playHurt();
-    if (this.powers.length > 0) { this.loseTopPower(); return 'power'; }
+
+    if (this.hasShield) {
+      this.consumePower('speed', 1);
+      return 'shield';
+    }
+
     this.hp -= 22;
     if (this.hp <= 0) { this.hp = this.maxHp; this.respawn(true); return 'down'; }
     return 'hp';
