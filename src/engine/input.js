@@ -75,6 +75,15 @@ export class Input {
     this.touchHeld.delete(name);
   }
 
+  _requestSpecial(type) {
+    const p = window.__player;
+    if (!p || (p.powerCounts?.[type] || 0) < 3) return false;
+    p.lastPower = type;
+    window.__specialTypeRequest = type;
+    this._pressTouch('special-' + type);
+    return true;
+  }
+
   _setupTouchControls(domElement) {
     document.body.classList.add('mobile-controls-enabled');
 
@@ -85,7 +94,9 @@ export class Input {
         <div class="mobile-joy-knob"></div>
       </div>
       <div class="mobile-actions" aria-label="Acoes">
-        <button class="mobile-btn mobile-btn-special" data-action="special" type="button">ESP.</button>
+        <button class="mobile-btn mobile-btn-special mobile-btn-special-blue" data-action="special-speed" type="button">AZUL</button>
+        <button class="mobile-btn mobile-btn-special mobile-btn-special-red" data-action="special-kick" type="button">VERM.</button>
+        <button class="mobile-btn mobile-btn-special mobile-btn-special-green" data-action="special-jump" type="button">VERDE</button>
         <button class="mobile-btn mobile-btn-small" data-action="run" type="button">RUN</button>
         <button class="mobile-btn" data-action="jump" type="button">SALTAR</button>
         <button class="mobile-btn mobile-btn-kick" data-action="attack" type="button">CHUTAR</button>
@@ -95,6 +106,34 @@ export class Input {
 
     const joy = root.querySelector('.mobile-joy');
     const knob = root.querySelector('.mobile-joy-knob');
+
+    const updateSpecialButtons = () => {
+      const p = window.__player;
+      const cfg = {
+        speed: ['#2f7be0', 'AZUL'],
+        kick: ['#e8323f', 'VERM.'],
+        jump: ['#27c24a', 'VERDE'],
+      };
+      for (const [type, [color, label]] of Object.entries(cfg)) {
+        const btn = root.querySelector(`[data-action="special-${type}"]`);
+        if (!btn) continue;
+        const count = p?.powerCounts?.[type] || 0;
+        btn.textContent = `${label} ${count}/3`;
+        if (count >= 3) {
+          btn.style.opacity = '.94';
+          btn.style.borderColor = '#ffffffcc';
+          btn.style.background = `radial-gradient(circle at 35% 24%, #ffffff55, #ffffff00 28%), linear-gradient(180deg, ${color}, ${color}88)`;
+          btn.style.boxShadow = `0 0 18px ${color}, 0 8px 18px #0007`;
+        } else {
+          btn.style.opacity = '.34';
+          btn.style.borderColor = '#ffffff33';
+          btn.style.background = 'linear-gradient(180deg,#2b385a55,#11182b44)';
+          btn.style.boxShadow = '0 8px 18px #0005, inset 0 4px 12px #ffffff12, inset 0 -8px 14px #0005';
+        }
+      }
+    };
+    setInterval(updateSpecialButtons, 150);
+    updateSpecialButtons();
 
     const stop = (e) => {
       e.preventDefault();
@@ -158,7 +197,9 @@ export class Input {
         }
         if (action === 'jump') this._pressTouch('jump');
         if (action === 'attack') this._pressTouch('attack');
-        if (action === 'special') this._pressTouch('special');
+        if (action === 'special-speed') this._requestSpecial('speed');
+        if (action === 'special-kick') this._requestSpecial('kick');
+        if (action === 'special-jump') this._requestSpecial('jump');
         btn.classList.add('is-active');
       });
       const release = (e) => {
@@ -167,7 +208,9 @@ export class Input {
         if (action !== 'run') btn.classList.remove('is-active');
         if (action === 'jump') this._releaseTouch('jump');
         if (action === 'attack') this._releaseTouch('attack');
-        if (action === 'special') this._releaseTouch('special');
+        if (action === 'special-speed') this._releaseTouch('special-speed');
+        if (action === 'special-kick') this._releaseTouch('special-kick');
+        if (action === 'special-jump') this._releaseTouch('special-jump');
       };
       btn.addEventListener('pointerup', release);
       btn.addEventListener('pointercancel', release);
@@ -239,9 +282,21 @@ export class Input {
       (gp && gp.buttons[2]?.pressed && !this._gpAtkHeld && (this._gpAtkHeld = true)) || false;
   }
 
+  _keyboardSpecial(type) {
+    const p = window.__player;
+    if (!p || (p.powerCounts?.[type] || 0) < 3) return false;
+    p.lastPower = type;
+    window.__specialTypeRequest = type;
+    return true;
+  }
+
   special() {
     const gp = navigator.getGamepads?.()[0];
-    return this.pressed('KeyF') || this.touchPressed.has('special') ||
+    if (this.pressed('Digit1')) return this._keyboardSpecial('speed');
+    if (this.pressed('Digit2')) return this._keyboardSpecial('kick');
+    if (this.pressed('Digit3')) return this._keyboardSpecial('jump');
+    if (this.touchPressed.has('special-speed') || this.touchPressed.has('special-kick') || this.touchPressed.has('special-jump')) return true;
+    return this.pressed('KeyF') ||
       (gp && gp.buttons[3]?.pressed && !this._gpSpecialHeld && (this._gpSpecialHeld = true)) || false;
   }
 
