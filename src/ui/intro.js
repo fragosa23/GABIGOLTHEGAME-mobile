@@ -6,24 +6,24 @@ export function runIntro(lines, onDone) {
   const portraits = [invadedPortrait, savePortrait];
 
   const wrap = document.createElement('div');
-  wrap.style.cssText = `position:fixed;left:50%;bottom:7vh;transform:translateX(-50%);z-index:60;
-    width:min(94vw,980px);display:flex;align-items:flex-end;justify-content:center;gap:clamp(8px,2vw,18px);
+  wrap.style.cssText = `position:fixed;left:50%;bottom:5vh;transform:translateX(-50%);z-index:60;
+    width:min(96vw,980px);display:flex;align-items:flex-end;justify-content:center;gap:0;
     pointer-events:auto;font-family:system-ui,sans-serif;color:#fff;opacity:0;transition:opacity .25s;`;
 
   const portraitBox = document.createElement('div');
-  portraitBox.style.cssText = `width:clamp(120px,24vw,260px);height:clamp(150px,44vh,380px);
-    display:flex;align-items:flex-end;justify-content:center;pointer-events:none;
+  portraitBox.style.cssText = `width:clamp(118px,21vw,230px);height:clamp(150px,40vh,350px);
+    display:flex;align-items:flex-end;justify-content:center;pointer-events:none;margin-right:-10px;z-index:2;
     filter:drop-shadow(0 12px 24px #000a);`;
 
   const portrait = document.createElement('img');
   portrait.alt = 'G. Caldeira';
-  portrait.style.cssText = `max-width:100%;max-height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;`;
+  portrait.style.cssText = `max-width:100%;max-height:100%;object-fit:contain;display:block;user-select:none;-webkit-user-drag:none;`;
   portraitBox.appendChild(portrait);
 
   const box = document.createElement('div');
-  box.style.cssText = `flex:1;max-width:min(68vw,620px);background:#071226bb;border:1px solid #ffffff66;
+  box.style.cssText = `flex:1;max-width:min(72vw,640px);background:#071226cc;border:1px solid #ffffff66;
     border-radius:26px;padding:clamp(12px,2.3vh,18px) clamp(18px,4vw,30px) clamp(11px,2vh,15px);
-    box-shadow:0 8px 28px #0008;backdrop-filter:blur(5px);`;
+    box-shadow:0 8px 28px #0008;backdrop-filter:blur(5px);position:relative;z-index:1;`;
 
   const who = document.createElement('div');
   who.textContent = 'G. CALDEIRA';
