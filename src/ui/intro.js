@@ -1,13 +1,29 @@
 import { playWhistle } from '../engine/audio.js';
+import { invadedPortrait, savePortrait } from './introPortraits.js';
 
-// Cutscene de diálogo: caixas de texto por toque/click; no fim, apito + "COMEÇA O DESAFIO!".
+// Cutscene de diálogo: retrato + caixa de texto por toque/click; no fim, apito + "COMEÇA O DESAFIO!".
 export function runIntro(lines, onDone) {
+  const portraits = [invadedPortrait, savePortrait];
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `position:fixed;left:50%;bottom:7vh;transform:translateX(-50%);z-index:60;
+    width:min(94vw,980px);display:flex;align-items:flex-end;justify-content:center;gap:clamp(8px,2vw,18px);
+    pointer-events:auto;font-family:system-ui,sans-serif;color:#fff;opacity:0;transition:opacity .25s;`;
+
+  const portraitBox = document.createElement('div');
+  portraitBox.style.cssText = `width:clamp(120px,24vw,260px);height:clamp(150px,44vh,380px);
+    display:flex;align-items:flex-end;justify-content:center;pointer-events:none;
+    filter:drop-shadow(0 12px 24px #000a);`;
+
+  const portrait = document.createElement('img');
+  portrait.alt = 'G. Caldeira';
+  portrait.style.cssText = `max-width:100%;max-height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;`;
+  portraitBox.appendChild(portrait);
+
   const box = document.createElement('div');
-  box.style.cssText = `position:fixed;left:50%;bottom:9vh;transform:translateX(-50%);z-index:60;
-    max-width:min(68vw,560px);background:#07122699;border:1px solid #ffffff66;
+  box.style.cssText = `flex:1;max-width:min(68vw,620px);background:#071226bb;border:1px solid #ffffff66;
     border-radius:26px;padding:clamp(12px,2.3vh,18px) clamp(18px,4vw,30px) clamp(11px,2vh,15px);
-    box-shadow:0 8px 28px #0008;
-    font-family:system-ui,sans-serif;color:#fff;opacity:0;transition:opacity .25s;`;
+    box-shadow:0 8px 28px #0008;backdrop-filter:blur(5px);`;
 
   const who = document.createElement('div');
   who.textContent = 'G. CALDEIRA';
@@ -23,12 +39,16 @@ export function runIntro(lines, onDone) {
     animation:hudpulse 1s ease-in-out infinite;`;
 
   box.appendChild(who); box.appendChild(txt); box.appendChild(prompt);
-  document.body.appendChild(box);
-  requestAnimationFrame(() => { box.style.opacity = '1'; });
+  wrap.appendChild(portraitBox); wrap.appendChild(box);
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => { wrap.style.opacity = '1'; });
 
   let i = 0;
   const show = () => {
     txt.style.opacity = '0';
+    const p = portraits[i] || portraits[portraits.length - 1];
+    portrait.src = p || '';
+    portraitBox.style.display = p ? 'flex' : 'none';
     setTimeout(() => { txt.textContent = lines[i]; txt.style.transition = 'opacity .2s'; txt.style.opacity = '1'; }, 90);
   };
   show();
@@ -41,9 +61,9 @@ export function runIntro(lines, onDone) {
 
   const finish = () => {
     window.removeEventListener('keydown', onKey);
-    box.removeEventListener('pointerdown', onTouch);
-    box.style.opacity = '0';
-    setTimeout(() => box.remove(), 250);
+    wrap.removeEventListener('pointerdown', onTouch);
+    wrap.style.opacity = '0';
+    setTimeout(() => wrap.remove(), 250);
     playWhistle(); // apito do árbitro
 
     const go = document.createElement('div');
@@ -69,6 +89,6 @@ export function runIntro(lines, onDone) {
     e.stopPropagation();
     advance();
   };
-  box.addEventListener('pointerdown', onTouch);
+  wrap.addEventListener('pointerdown', onTouch);
   window.addEventListener('keydown', onKey);
 }
