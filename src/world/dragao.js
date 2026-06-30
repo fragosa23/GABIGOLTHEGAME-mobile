@@ -58,7 +58,8 @@ export function buildDragaoLevel(scene, physics, onReady) {
 
   // objetivo: a baliza Goal_Right, agora no lado -z (centro real ~ (0.67, _, -52.6))
   const goal = new THREE.Vector3(0.67, 1.5, -52.6);
-  const ballSpawnSource = new THREE.Vector3(goal.x, 2.6, goal.z + 2.8);
+  // as bolas carregam na baliza oposta ao portão maléfico; o portão fica só para monstros
+  const ballSpawnSource = new THREE.Vector3(0, 2.6, 52.6);
   // brilho da baliza — acende quando todos os inimigos morrem (peças preenchidas no load)
   const goalGlow = new THREE.PointLight(0xffe14d, 0, 30, 2);
   goalGlow.position.set(goal.x, 3, goal.z); scene.add(goalGlow);
@@ -189,9 +190,10 @@ export function buildDragaoLevel(scene, physics, onReady) {
       spawnT: 0,
       spawned: 0,
       defeated: 0,
-      totalToDefeat: 30,
+      totalToDefeat: 31,
       totalExtraSpawns: 30,
       bossSpawned: false,
+      bossDefeated: false,
       destroyed: false,
       shards: [],
     },
