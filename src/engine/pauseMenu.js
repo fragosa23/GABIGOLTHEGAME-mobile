@@ -3,12 +3,14 @@ import { makeOptionsPanel } from './options.js';
 export function installPauseButton({ isPlaying, pause, resume, goMenu }) {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.textContent = '⏸ PAUSE';
-  btn.style.cssText = `position:fixed;top:max(12px,env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));
-    z-index:115;display:none;pointer-events:auto;cursor:pointer;font-family:system-ui,sans-serif;
-    color:#e8f5ff;background:#071226bb;border:1px solid #ffffff77;border-radius:999px;
-    padding:clamp(7px,1.6vh,10px) clamp(12px,3vw,18px);font-size:clamp(11px,2.2vw,14px);
-    font-weight:900;letter-spacing:.5px;text-shadow:0 2px 6px #000;box-shadow:0 8px 22px #0008;`;
+  btn.textContent = '⏸';
+  btn.setAttribute('aria-label', 'Pausa');
+  btn.style.cssText = `position:fixed;top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));
+    z-index:180;display:none;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;
+    width:clamp(34px,7vw,42px);height:clamp(34px,7vw,42px);font-family:system-ui,sans-serif;
+    color:#e8f5ff;background:#07122688;border:1px solid #ffffff55;border-radius:50%;
+    padding:0;font-size:clamp(15px,3.2vw,19px);font-weight:900;line-height:1;
+    text-shadow:0 2px 6px #000;box-shadow:0 6px 18px #0006;opacity:.72;`;
   document.body.appendChild(btn);
 
   let overlay = null;
@@ -68,7 +70,7 @@ export function installPauseButton({ isPlaying, pause, resume, goMenu }) {
   });
 
   return {
-    update(visible) { btn.style.display = visible ? 'block' : 'none'; },
+    update(visible) { btn.style.display = visible ? 'flex' : 'none'; },
     close: closeOverlay,
   };
 }
