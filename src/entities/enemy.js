@@ -3,6 +3,9 @@ import { buildPlayerSkeleton } from '../character/skeleton.js';
 import { addPart, toon } from '../character/utils.js';
 
 const EGRAV = -28;
+const HP_DOT_GEO = new THREE.SphereGeometry(0.045, 10, 10);
+const HP_DOT_MAT = new THREE.MeshBasicMaterial({ color: 0xff1e2d, transparent: true, opacity: 0.95, depthTest: true });
+const HP_DOT_EMPTY_MAT = new THREE.MeshBasicMaterial({ color: 0x1a0508, transparent: true, opacity: 0.28, depthTest: true });
 
 // Equipamento do Benfica (1º nível): camisola vermelha, calções brancos, meias vermelhas.
 const BENFICA = {
@@ -22,6 +25,7 @@ export class Enemy {
     this.speed = opts.speed ?? 5.5;
     this.detect = opts.detect ?? 14;
     this.hp = opts.hp ?? 3;
+    this.maxHp = this.hp;
     this.radius = opts.radius ?? 0.7;
     this.facing = 0;
     this.wanderT = 0;
@@ -50,6 +54,10 @@ export class Enemy {
     if (this.spawnFrom) this.model.scale.copy(this._finalScale).multiplyScalar(0.08);
     this.parts = this.model.userData.parts;
     this._baseHipsY = this.parts.hips.position.y;
+    this.hpDots = [];
+    this.hpBar = this._buildHpBar();
+    this.model.add(this.hpBar);
+    this._updateHpDots();
     this.model.position.copy(this.position);
     scene.add(this.model);
 
@@ -85,6 +93,40 @@ export class Enemy {
     wrap.add(rig);
     wrap.userData.parts = rig.userData.parts;
     return wrap;
+  }
+
+  _buildHpBar() {
+    const bar = new THREE.Group();
+    const perRow = 10;
+    const gap = 0.115;
+    const rows = Math.ceil(this.maxHp / perRow);
+    const baseY = 2.65 + rows * 0.055;
+    bar.position.set(0, baseY, 0);
+
+    for (let i = 0; i < this.maxHp; i++) {
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const countThisRow = Math.min(perRow, this.maxHp - row * perRow);
+      const x = (col - (countThisRow - 1) / 2) * gap;
+      const y = row * 0.105;
+
+      const dot = new THREE.Mesh(HP_DOT_GEO, HP_DOT_MAT.clone());
+      dot.position.set(x, y, 0);
+      dot.renderOrder = 20;
+      bar.add(dot);
+      this.hpDots.push(dot);
+    }
+
+    return bar;
+  }
+
+  _updateHpDots() {
+    for (let i = 0; i < this.hpDots.length; i++) {
+      const active = i < Math.max(0, this.hp);
+      const dot = this.hpDots[i];
+      dot.material = active ? HP_DOT_MAT.clone() : HP_DOT_EMPTY_MAT.clone();
+      dot.visible = active;
+    }
   }
 
   _updateSpawn(dt) {
@@ -129,7 +171,9 @@ export class Enemy {
 
   takeKick(fromPos, force = 1) {
     if (!this.alive || this.spawnPhase !== 'idle') return null;
-    this.hp -= force >= 1.5 ? 2 : 1;   // chute forte tira mais vida
+    const damage = force >= 1.5 ? 2 : 1;   // chute forte tira mais vida
+    this.hp -= damage;
+    this._updateHpDots();
     const away = new THREE.Vector3().subVectors(this.position, fromPos); away.y = 0;
     if (away.lengthSq() < 0.001) away.set(0, 0, 1);
     away.normalize();
