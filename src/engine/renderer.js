@@ -1,8 +1,8 @@
 import * as THREE from 'three';
+import { applyRendererOptions, onOptionsChange } from './options.js';
 
 export function createRenderer(container) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -36,6 +36,9 @@ export function createRenderer(container) {
   scene.add(sun);
   scene.add(sun.target);
 
+  applyRendererOptions(renderer, sun);
+  onOptionsChange(() => applyRendererOptions(renderer, sun));
+
   const hemi = new THREE.HemisphereLight(0xbfe6ff, 0x3a5f3a, 1.0);
   scene.add(hemi);
 
@@ -43,6 +46,7 @@ export function createRenderer(container) {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    applyRendererOptions(renderer, sun);
   });
 
   return { renderer, scene, camera, sun };
