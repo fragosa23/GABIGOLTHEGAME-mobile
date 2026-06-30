@@ -85,6 +85,7 @@ export class Input {
         <div class="mobile-joy-knob"></div>
       </div>
       <div class="mobile-actions" aria-label="Acoes">
+        <button class="mobile-btn mobile-btn-special" data-action="special" type="button">ESP.</button>
         <button class="mobile-btn mobile-btn-small" data-action="run" type="button">RUN</button>
         <button class="mobile-btn" data-action="jump" type="button">SALTAR</button>
         <button class="mobile-btn mobile-btn-kick" data-action="attack" type="button">CHUTAR</button>
@@ -157,6 +158,7 @@ export class Input {
         }
         if (action === 'jump') this._pressTouch('jump');
         if (action === 'attack') this._pressTouch('attack');
+        if (action === 'special') this._pressTouch('special');
         btn.classList.add('is-active');
       });
       const release = (e) => {
@@ -165,6 +167,7 @@ export class Input {
         if (action !== 'run') btn.classList.remove('is-active');
         if (action === 'jump') this._releaseTouch('jump');
         if (action === 'attack') this._releaseTouch('attack');
+        if (action === 'special') this._releaseTouch('special');
       };
       btn.addEventListener('pointerup', release);
       btn.addEventListener('pointercancel', release);
@@ -236,6 +239,12 @@ export class Input {
       (gp && gp.buttons[2]?.pressed && !this._gpAtkHeld && (this._gpAtkHeld = true)) || false;
   }
 
+  special() {
+    const gp = navigator.getGamepads?.()[0];
+    return this.pressed('KeyF') || this.touchPressed.has('special') ||
+      (gp && gp.buttons[3]?.pressed && !this._gpSpecialHeld && (this._gpSpecialHeld = true)) || false;
+  }
+
   cameraToggle() {
     return false;
   }
@@ -253,5 +262,6 @@ export class Input {
     const gp = navigator.getGamepads?.()[0];
     if (gp && !gp.buttons[0]?.pressed) this._gpJumpHeld = false;
     if (gp && !gp.buttons[2]?.pressed) this._gpAtkHeld = false;
+    if (gp && !gp.buttons[3]?.pressed) this._gpSpecialHeld = false;
   }
 }
