@@ -17,7 +17,8 @@ export class Enemy {
     this.alive = true;
     this.scene = scene;
     this.home = pos.clone();
-    this.position = pos.clone();
+    this.spawnFrom = opts.spawnFrom ? opts.spawnFrom.clone() : null;
+    this.position = this.spawnFrom ? this.spawnFrom.clone() : pos.clone();
     this.speed = opts.speed ?? 5.5;
     this.detect = opts.detect ?? 14;
     this.hp = opts.hp ?? 3;
@@ -25,6 +26,12 @@ export class Enemy {
     this.facing = 0;
     this.wanderT = 0;
     this.wanderDir = new THREE.Vector3(1, 0, 0);
+
+    this.spawnPhase = this.spawnFrom ? 'charging' : 'idle';
+    this.spawnT = 0;
+    this.chargeTime = opts.chargeTime ?? 1.1;
+    this.flightTime = opts.flightTime ?? 1.0;
+    this.trailFade = 1;
 
     this.stun = 0; this.vy = 0;
     this.kb = new THREE.Vector3();
@@ -35,12 +42,25 @@ export class Enemy {
       const s = opts.scale ?? 1;
       const w = opts.widthScale ?? s;
       this.model.scale.set(w, s, w);
+      this._finalScale = new THREE.Vector3(w, s, w);
       this.radius *= w;
+    } else {
+      this._finalScale = new THREE.Vector3(1, 1, 1);
     }
+    if (this.spawnFrom) this.model.scale.copy(this._finalScale).multiplyScalar(0.08);
     this.parts = this.model.userData.parts;
     this._baseHipsY = this.parts.hips.position.y;
-    this.model.position.copy(pos);
+    this.model.position.copy(this.position);
     scene.add(this.model);
+
+    this.trail = null;
+    this.trailMat = null;
+    if (this.spawnFrom) {
+      const geom = new THREE.BufferGeometry().setFromPoints([this.spawnFrom, this.spawnFrom]);
+      this.trailMat = new THREE.LineBasicMaterial({ color: 0xe30613, transparent: true, opacity: 0, depthWrite: false });
+      this.trail = new THREE.Line(geom, this.trailMat);
+      scene.add(this.trail);
+    }
   }
 
   _build(opts) {
@@ -67,8 +87,48 @@ export class Enemy {
     return wrap;
   }
 
+  _updateSpawn(dt) {
+    if (this.spawnPhase === 'idle') return false;
+    this.spawnT += dt;
+    if (this.spawnPhase === 'charging') {
+      const k = Math.min(this.spawnT / this.chargeTime, 1);
+      const ease = 1 - Math.pow(1 - k, 3);
+      this.model.scale.copy(this._finalScale).multiplyScalar(0.08 + ease * 0.92);
+      this.model.rotation.y += dt * (2 + ease * 5);
+      this.model.position.y = this.spawnFrom.y + Math.sin(performance.now() * 0.014) * 0.16;
+      if (k >= 1) {
+        this.spawnPhase = 'flying';
+        this.spawnT = 0;
+        if (this.trailMat) this.trailMat.opacity = 0.78;
+      }
+      return true;
+    }
+
+    if (this.spawnPhase === 'flying') {
+      const k = Math.min(this.spawnT / this.flightTime, 1);
+      const ease = 1 - Math.pow(1 - k, 2);
+      const p = new THREE.Vector3().lerpVectors(this.spawnFrom, this.home, ease);
+      p.y += Math.sin(k * Math.PI) * 7.5;
+      this.position.copy(p);
+      this.model.position.copy(this.position);
+      this.model.rotation.x = Math.sin(k * Math.PI * 2) * 0.35;
+      this.model.rotation.z = Math.sin(k * Math.PI * 3) * 0.22;
+      if (this.trail) this.trail.geometry.setFromPoints([this.spawnFrom, p.clone()]);
+      if (k >= 1) {
+        this.position.copy(this.home);
+        this.model.position.copy(this.position);
+        this.model.rotation.x = 0;
+        this.model.rotation.z = 0;
+        this.spawnPhase = 'idle';
+        this.spawnT = 0;
+      }
+      return true;
+    }
+    return false;
+  }
+
   takeKick(fromPos, force = 1) {
-    if (!this.alive) return null;
+    if (!this.alive || this.spawnPhase !== 'idle') return null;
     this.hp -= force >= 1.5 ? 2 : 1;   // chute forte tira mais vida
     const away = new THREE.Vector3().subVectors(this.position, fromPos); away.y = 0;
     if (away.lengthSq() < 0.001) away.set(0, 0, 1);
@@ -81,6 +141,11 @@ export class Enemy {
 
   update(dt, player) {
     if (!this.alive) return;
+    if (this._updateSpawn(dt)) return;
+    if (this.trailMat && this.trailFade > 0) {
+      this.trailFade -= dt * 0.45;
+      this.trailMat.opacity = Math.max(0, this.trailFade) * 0.78;
+    }
 
     // atordoado: salta para trás, treme, não persegue
     if (this.stun > 0) {
@@ -149,5 +214,6 @@ export class Enemy {
   defeat() {
     this.alive = false;
     this.scene.remove(this.model);
+    if (this.trail) this.scene.remove(this.trail);
   }
 }
