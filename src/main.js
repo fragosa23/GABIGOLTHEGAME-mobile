@@ -11,7 +11,6 @@ import { PowerBall } from './entities/ball.js';
 import { HUD } from './ui/hud.js';
 import { SpeedFx } from './engine/speedFx.js';
 import { playWhistle, resumeAudio, startGameplayMusic } from './engine/audio.js';
-import { installPauseButton } from './engine/pauseMenu.js';
 import { showMenu } from './ui/menu.js';
 import { runIntro } from './ui/intro.js';
 
@@ -32,6 +31,14 @@ window.__renderer = renderer; window.__scene = scene; window.__camera = camera;
 const speedFx = new SpeedFx(scene); window.__speedFx = speedFx; window.__hud = hud; window.__orbit = orbit;
 const BASE_FOV = camera.fov, SPRINT_FOV = 72;
 window.addEventListener('click', resumeAudio);
+
+function randomFieldPoint(y = 1.5) {
+  return new THREE.Vector3(
+    (Math.random() - 0.5) * 62,
+    y,
+    -42 + Math.random() * 82
+  );
+}
 
 // constrói o nível escolhido (tutorial=procedural | career=estádio Dragão, async)
 function setupWorld(mode, onReady) {
@@ -73,27 +80,11 @@ function doKick() {
 }
 
 let won = false;
-let phase = 'menu';    // 'menu' | 'intro' | 'gateIntro' | 'play' | 'pause'
+let phase = 'menu';    // 'menu' | 'intro' | 'play'
 let introT = 0;
 let prevPowers = 0, prevHp = player.hp;
 const clock = new THREE.Clock();
 const tmpVec = new THREE.Vector3();
-
-const pauseControl = installPauseButton({
-  isPlaying: () => phase === 'play' && !won,
-  pause: () => {
-    phase = 'pause';
-    player.controllable = false;
-    document.exitPointerLock?.();
-  },
-  resume: () => {
-    if (phase !== 'pause') return;
-    phase = 'play';
-    player.controllable = true;
-    clock.getDelta();
-  },
-  goMenu: () => location.reload(),
-});
 
 function centerCallout(text, color = '#fff', glow = '#2f9bff') {
   const el = document.createElement('div');
@@ -151,7 +142,7 @@ function updateGateIntro(dt) {
   if (t >= 1) {
     g.intro = false;
     g.active = true;
-    g.spawnT = 1;
+    g.spawnT = 0.6;
     phase = 'play';
     player.controllable = true;
     orbit.snapBehind(player.facing);
@@ -163,9 +154,8 @@ function spawnGateEnemy(isBoss = false) {
   const idx = g.spawned;
   const size = isBoss ? 3.0 : 1.08 + idx * 0.035;
   const width = isBoss ? 3.45 : size * (1.05 + idx * 0.008);
-  const pos = g.spawn.clone();
-  pos.x += (Math.random() - 0.5) * 5.5;
-  pos.z += Math.random() * 3.5;
+  const pos = randomFieldPoint(0);
+  pos.z = THREE.MathUtils.clamp(pos.z, -35, 42);
   const enemy = new Enemy(scene, pos, {
     number: isBoss ? 99 : 2 + (idx % 9),
     speed: isBoss ? 4.2 : 5.1 + Math.min(idx * 0.04, 0.9),
@@ -174,6 +164,9 @@ function spawnGateEnemy(isBoss = false) {
     scale: size,
     widthScale: width,
     radius: isBoss ? 1.7 : 0.75,
+    spawnFrom: g.spawn,
+    chargeTime: isBoss ? 1.55 : 1.0,
+    flightTime: isBoss ? 1.25 : 0.9,
   });
   enemy.isGateSpawn = true;
   enemy.isBoss = isBoss;
@@ -230,7 +223,7 @@ function updateGateEvent(dt) {
     if (g.spawnT <= 0 && g.spawned < g.totalExtraSpawns) {
       const next = g.spawned + 1;
       spawnGateEnemy(next === g.totalExtraSpawns);
-      g.spawnT = 5;
+      g.spawnT = next > 24 ? 2.2 : 2.8;
     }
     if (g.defeated >= g.totalToDefeat) {
       destroyGate();
@@ -255,17 +248,19 @@ function updatePowerSpawns(dt) {
   if (p.t > 0) return;
   p.t = p.interval;
   const type = p.types[p.index++ % p.types.length];
-  const pos = p.pos.clone();
-  pos.x += (Math.random() - 0.5) * 6;
-  pos.z += (Math.random() - 0.5) * 2.5;
-  level.balls.push(new PowerBall(scene, pos, type));
+  const pos = randomFieldPoint(1.5);
+  level.balls.push(new PowerBall(scene, pos, type, {
+    spawnFrom: p.source || level.ballSpawnSource || level.goal?.clone().add(new THREE.Vector3(0, 1.2, 2.8)) || pos,
+    chargeTime: 1.15,
+    flightTime: 1.0,
+  }));
 }
 
 function loop() {
   requestAnimationFrame(loop);
   let dt = Math.min(clock.getDelta(), 0.05);
 
-  if (phase !== 'menu' && phase !== 'pause' && !won) player.update(dt);   // intro: idle; play: controlado
+  if (phase !== 'menu' && !won) player.update(dt);   // intro: idle; play: controlado
 
   if (phase === 'play' && !won) {
     orbit.setTarget(player.position);
@@ -344,7 +339,6 @@ function loop() {
   else if (phase === 'gateIntro') updateGateIntro(dt);
   else if (phase === 'play') orbit.update(dt);
   hud.setGameplayVisible(phase === 'play' && !won);
-  pauseControl.update(phase === 'play' && !won);
   hud.update(player, dt);
   input.endFrame();
   renderer.render(scene, camera);
@@ -365,7 +359,6 @@ function startIntro() {
 function win() {
   won = true;
   document.exitPointerLock?.();
-  pauseControl.close();
   const stats = {
     enemiesKilled: level.enemies.filter((e) => !e.alive).length,
     enemiesTotal: level.enemies.length,
