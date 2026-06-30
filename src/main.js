@@ -11,6 +11,7 @@ import { PowerBall } from './entities/ball.js';
 import { HUD } from './ui/hud.js';
 import { SpeedFx } from './engine/speedFx.js';
 import { playWhistle, resumeAudio, startGameplayMusic } from './engine/audio.js';
+import { makeOptionsPanel } from './engine/options.js';
 import { showMenu } from './ui/menu.js';
 import { runIntro } from './ui/intro.js';
 
@@ -80,12 +81,83 @@ function doKick() {
 }
 
 let won = false;
-let phase = 'menu';    // 'menu' | 'intro' | 'gateIntro' | 'bossIntro' | 'play'
+let phase = 'menu';    // 'menu' | 'intro' | 'gateIntro' | 'bossIntro' | 'play' | 'pause'
 let introT = 0;
 let bossIntro = null;
 let prevPowers = 0, prevHp = player.hp;
 const clock = new THREE.Clock();
 const tmpVec = new THREE.Vector3();
+
+const pauseBtn = document.createElement('button');
+pauseBtn.type = 'button';
+pauseBtn.textContent = '⏸ PAUSE';
+pauseBtn.style.cssText = `position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));
+  z-index:120;display:none;pointer-events:auto;cursor:pointer;font-family:system-ui,sans-serif;
+  color:#e8f5ff;background:#071226cc;border:1px solid #ffffff88;border-radius:999px;
+  padding:clamp(8px,1.8vh,11px) clamp(13px,3vw,19px);font-size:clamp(11px,2.3vw,15px);
+  font-weight:900;letter-spacing:.5px;text-shadow:0 2px 6px #000;box-shadow:0 8px 24px #0009;`;
+document.body.appendChild(pauseBtn);
+
+let pauseOverlay = null;
+function makePauseButton(label) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = label;
+  b.style.cssText = `cursor:pointer;width:100%;font-size:clamp(14px,3vw,18px);font-weight:900;
+    color:#e8f5ff;background:#0b1020;border:2px solid #ffffff88;border-radius:999px;
+    padding:clamp(10px,2vh,14px) clamp(18px,5vw,32px);box-shadow:0 8px 22px #0007;`;
+  return b;
+}
+
+function showPauseMenu() {
+  pauseOverlay?.remove();
+  pauseOverlay = document.createElement('div');
+  pauseOverlay.style.cssText = `position:fixed;inset:0;z-index:140;display:flex;align-items:center;justify-content:center;
+    background:#050913dd;backdrop-filter:blur(6px);font-family:system-ui,sans-serif;color:#fff;pointer-events:auto;`;
+
+  const panel = document.createElement('div');
+  panel.style.cssText = `width:min(84vw,390px);display:flex;flex-direction:column;gap:12px;background:#071226ee;
+    border:2px solid #ffffff55;border-radius:18px;padding:clamp(16px,4vw,26px);box-shadow:0 16px 46px #000b;`;
+
+  const title = document.createElement('div');
+  title.textContent = 'PAUSE';
+  title.style.cssText = `font-size:clamp(28px,7vw,46px);font-weight:900;text-align:center;letter-spacing:1px;margin-bottom:4px;`;
+
+  const resume = makePauseButton('CONTINUAR');
+  const options = makePauseButton('OPÇÕES');
+  const menu = makePauseButton('VOLTAR AO MENU');
+  panel.append(title, resume, options, menu);
+  pauseOverlay.appendChild(panel);
+  document.body.appendChild(pauseOverlay);
+
+  resume.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); resumeGame(); });
+  options.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); makeOptionsPanel({ title: 'OPÇÕES' }); });
+  menu.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); location.reload(); });
+}
+
+function pauseGame() {
+  if (phase !== 'play' || won) return;
+  phase = 'pause';
+  player.controllable = false;
+  document.exitPointerLock?.();
+  showPauseMenu();
+}
+
+function resumeGame() {
+  if (phase !== 'pause') return;
+  pauseOverlay?.remove();
+  pauseOverlay = null;
+  phase = 'play';
+  player.controllable = true;
+  clock.getDelta();
+}
+
+pauseBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); pauseGame(); });
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'Escape' && e.code !== 'KeyP') return;
+  if (phase === 'play') { e.preventDefault(); pauseGame(); }
+  else if (phase === 'pause') { e.preventDefault(); resumeGame(); }
+});
 
 function centerCallout(text, color = '#fff', glow = '#2f9bff') {
   const el = document.createElement('div');
@@ -314,7 +386,7 @@ function loop() {
   requestAnimationFrame(loop);
   let dt = Math.min(clock.getDelta(), 0.05);
 
-  if (phase !== 'menu' && phase !== 'bossIntro' && !won) player.update(dt);   // intro: idle; play: controlado
+  if (phase !== 'menu' && phase !== 'bossIntro' && phase !== 'pause' && !won) player.update(dt);   // intro: idle; play: controlado
 
   if (phase === 'play' && !won) {
     orbit.setTarget(player.position);
@@ -393,7 +465,8 @@ function loop() {
   else if (phase === 'gateIntro') updateGateIntro(dt);
   else if (phase === 'bossIntro') updateBossIntro(dt);
   else if (phase === 'play') orbit.update(dt);
-  hud.setGameplayVisible(phase === 'play' && !won);
+  hud.setGameplayVisible((phase === 'play' || phase === 'pause') && !won);
+  pauseBtn.style.display = phase === 'play' && !won ? 'block' : 'none';
   hud.update(player, dt);
   input.endFrame();
   renderer.render(scene, camera);
@@ -414,6 +487,9 @@ function startIntro() {
 function win() {
   won = true;
   document.exitPointerLock?.();
+  pauseOverlay?.remove();
+  pauseOverlay = null;
+  pauseBtn.style.display = 'none';
   const stats = {
     enemiesKilled: level.enemies.filter((e) => !e.alive).length,
     enemiesTotal: level.enemies.length,
