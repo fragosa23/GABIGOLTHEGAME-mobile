@@ -85,13 +85,13 @@
         position: absolute;
         right: max(10px, env(safe-area-inset-right));
         bottom: max(10px, env(safe-area-inset-bottom));
-        width: min(248px, 40vw);
+        width: min(280px, 43vw);
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: repeat(3, auto);
-        align-items: center;
+        grid-template-rows: auto auto;
+        align-items: end;
         justify-items: center;
-        gap: clamp(5px, .9vw, 8px);
+        gap: clamp(6px, 1vw, 10px);
         pointer-events: auto;
         touch-action: none;
       }
@@ -131,18 +131,24 @@
       }
 
       .mobile-btn[data-action="run"] {
-        grid-column: 2;
+        grid-column: 1;
         grid-row: 2;
       }
 
       .mobile-btn[data-action="jump"] {
-        grid-column: 1;
-        grid-row: 3;
+        grid-column: 2;
+        grid-row: 2;
+        width: clamp(58px, 8.8vw, 76px);
+        height: clamp(58px, 8.8vw, 76px);
+        font-size: clamp(9px, 1.35vw, 11px);
       }
 
       .mobile-btn[data-action="attack"] {
         grid-column: 3;
-        grid-row: 3;
+        grid-row: 2;
+        width: clamp(58px, 8.8vw, 76px);
+        height: clamp(58px, 8.8vw, 76px);
+        font-size: clamp(9px, 1.35vw, 11px);
       }
 
       .mobile-btn-special {
@@ -203,7 +209,7 @@
       }
 
       .mobile-controls-enabled #msg {
-        bottom: max(190px, calc(env(safe-area-inset-bottom) + 184px)) !important;
+        bottom: max(164px, calc(env(safe-area-inset-bottom) + 156px)) !important;
       }
 
       #portraitGuard {
@@ -235,12 +241,18 @@
         }
 
         .mobile-actions {
-          width: min(218px, 56vw);
+          width: min(246px, 58vw);
         }
 
         .mobile-btn {
           width: clamp(45px, 11vw, 58px);
           height: clamp(45px, 11vw, 58px);
+        }
+
+        .mobile-btn[data-action="jump"],
+        .mobile-btn[data-action="attack"] {
+          width: clamp(52px, 13vw, 66px);
+          height: clamp(52px, 13vw, 66px);
         }
       }
     </style>
@@ -249,6 +261,7 @@
     <div id="app"></div>
     <div id="portraitGuard">Roda o telemovel para horizontal</div>
     <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/ui/powerVisuals.js"></script>
     <script>
       // Esconde sempre o rig procedural Three.js: visualmente só fica o player.glb do Blender.
       (() => {
