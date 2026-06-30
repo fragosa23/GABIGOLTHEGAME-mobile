@@ -80,8 +80,9 @@ function doKick() {
 }
 
 let won = false;
-let phase = 'menu';    // 'menu' | 'intro' | 'play'
+let phase = 'menu';    // 'menu' | 'intro' | 'gateIntro' | 'bossIntro' | 'play'
 let introT = 0;
+let bossIntro = null;
 let prevPowers = 0, prevHp = player.hp;
 const clock = new THREE.Clock();
 const tmpVec = new THREE.Vector3();
@@ -149,6 +150,49 @@ function updateGateIntro(dt) {
   }
 }
 
+function startBossIntro(enemy) {
+  bossIntro = { enemy, t: 0, duration: 5.2 };
+  phase = 'bossIntro';
+  player.controllable = false;
+  document.exitPointerLock?.();
+  centerCallout('BOSS FINAL', '#ff4d5d', '#ff1238');
+}
+
+function updateBossIntro(dt) {
+  if (!bossIntro?.enemy?.alive) {
+    bossIntro = null;
+    phase = 'play';
+    player.controllable = true;
+    orbit.snapBehind(player.facing);
+    return;
+  }
+
+  const e = bossIntro.enemy;
+  bossIntro.t += dt;
+  e.update(dt, player); // deixa o boss terminar carregamento e lançamento durante a cutscene
+
+  const k = Math.min(bossIntro.t / bossIntro.duration, 1);
+  const a = -Math.PI * 0.45 + k * Math.PI * 2.35;
+  const radius = THREE.MathUtils.lerp(18, 9, Math.sin(k * Math.PI) * 0.75 + k * 0.25);
+  const height = THREE.MathUtils.lerp(14, 6.5, k);
+  const target = tmpVec.set(e.position.x, e.position.y + 2.2, e.position.z);
+
+  camera.position.set(
+    target.x + Math.sin(a) * radius,
+    target.y + height,
+    target.z + Math.cos(a) * radius
+  );
+  camera.lookAt(target);
+
+  if (bossIntro.t >= bossIntro.duration) {
+    bossIntro = null;
+    phase = 'play';
+    player.controllable = true;
+    orbit.snapBehind(player.facing);
+    hud.message('⚠️ Derrota o boss final!', 2.5);
+  }
+}
+
 function spawnGateEnemy(isBoss = false) {
   const g = level.gate;
   const idx = g.spawned;
@@ -175,7 +219,7 @@ function spawnGateEnemy(isBoss = false) {
   if (isBoss) {
     g.bossSpawned = true;
     playWhistle();
-    centerCallout('BOSS FINAL', '#ff4d5d', '#ff1238');
+    startBossIntro(enemy);
   }
 }
 
@@ -260,7 +304,7 @@ function loop() {
   requestAnimationFrame(loop);
   let dt = Math.min(clock.getDelta(), 0.05);
 
-  if (phase !== 'menu' && !won) player.update(dt);   // intro: idle; play: controlado
+  if (phase !== 'menu' && phase !== 'bossIntro' && !won) player.update(dt);   // intro: idle; play: controlado
 
   if (phase === 'play' && !won) {
     orbit.setTarget(player.position);
@@ -337,6 +381,7 @@ function loop() {
 
   if (phase === 'intro') { introT += dt; introCamera(); }
   else if (phase === 'gateIntro') updateGateIntro(dt);
+  else if (phase === 'bossIntro') updateBossIntro(dt);
   else if (phase === 'play') orbit.update(dt);
   hud.setGameplayVisible(phase === 'play' && !won);
   hud.update(player, dt);
