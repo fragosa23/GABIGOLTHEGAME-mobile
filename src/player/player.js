@@ -21,6 +21,43 @@ function stripeTexture() {
   _stripeTex = tex; return tex;
 }
 
+function runPlayerSpecialCamera(player, type, duration = 1.25) {
+  const camera = window.__camera;
+  const orbit = window.__orbit;
+  if (!camera || !orbit) return;
+
+  const started = performance.now();
+  const wasControllable = player.controllable;
+  player.controllable = false;
+  player.specialCameraLock = true;
+
+  const loop = () => {
+    const t = (performance.now() - started) / 1000;
+    const k = Math.min(t / duration, 1);
+    const a = -Math.PI * 0.65 + k * Math.PI * 2.25;
+    const radius = type === 'jump' ? 7.2 : 5.7;
+    const h = type === 'jump' ? 2.8 + Math.sin(k * Math.PI) * 1.5 : 2.2;
+    const targetY = type === 'jump' ? player.position.y + 1.7 : player.position.y + 1.25;
+
+    camera.position.set(
+      player.position.x + Math.sin(a) * radius,
+      targetY + h,
+      player.position.z + Math.cos(a) * radius
+    );
+    camera.lookAt(player.position.x, targetY, player.position.z);
+
+    if (k < 1) {
+      requestAnimationFrame(loop);
+      return;
+    }
+
+    player.specialCameraLock = false;
+    player.controllable = wasControllable;
+    orbit.snapBehind?.(player.facing);
+  };
+  requestAnimationFrame(loop);
+}
+
 export class Player {
   constructor(scene, physics, input, orbit) {
     this.physics = physics; this.input = input; this.orbit = orbit;
@@ -47,6 +84,7 @@ export class Player {
     this.model.add(this.pmodel.group);
     this.hurtTimer = 0; this._jumpEvent = false; this._kickEvent = false; this._hurtEvent = false;
     this.sprinting = false; this.controllable = false; // ativado quando o jogo começa (após a intro)
+    this.specialCameraLock = false;
 
     // bolas de futebol a orbitar o jogador — agora podem acumular até 3 por cor
     this.orbit3 = new THREE.Group(); this.orbit3.position.y = 1.15; this.model.add(this.orbit3);
@@ -113,7 +151,7 @@ export class Player {
   update(dt) {
     this._jumpEvent = false;
     if (!this.controllable) {
-      // intro/cutscene: sem controlo — travar e ficar parado (idle)
+      // intro/cutscene: sem controlo — travar X/Z, mas deixar a física vertical funcionar.
       this.sprinting = false;
       this.velocity.x = THREE.MathUtils.damp(this.velocity.x, 0, 12, dt);
       this.velocity.z = THREE.MathUtils.damp(this.velocity.z, 0, 12, dt);
@@ -231,7 +269,8 @@ export class Player {
     if (this.greenMegaLanding) {
       this.greenMegaLanding = false;
       this.didDoubleJump = false;
-      this.landingShockwave = { damage: 3, radius: 18, force: 5.5, color: 0x27c24a, mega: true };
+      this.landingShockwave = { damage: 3, radius: 22, force: 7.0, color: 0x27c24a, mega: true };
+      window.__hud?.message?.('🌪️ Shockwave verde gigante!', 2.0);
       return;
     }
     if (this.didDoubleJump && this.green >= 2) {
@@ -362,6 +401,8 @@ export class Player {
       this.giantT = 20;
       this.maxHp = 180;
       this.hp = Math.min(this.maxHp, this.hp + 80);
+      this.invuln = Math.max(this.invuln, 1.2);
+      runPlayerSpecialCamera(this, 'speed', 1.25);
       return true;
     }
     if (type === 'kick') {
@@ -372,10 +413,15 @@ export class Player {
     if (type === 'jump') {
       this.greenMegaLanding = true;
       this.didDoubleJump = false;
+      this.landingShockwave = null;
       this.grounded = false;
-      this.jumps = 2;
-      this.velocity.y = 25;
+      this.jumps = 99;
+      this.position.y += 0.35;
+      this.velocity.y = 32;
+      this.invuln = Math.max(this.invuln, 1.8);
+      this._jumpEvent = true;
       playSiii();
+      runPlayerSpecialCamera(this, 'jump', 1.6);
       return true;
     }
     return false;
