@@ -2,6 +2,7 @@ import bgUrl from '../../assets/menu_bg.png?url';
 import vidUrl from '../../assets/menu_bg.mp4?url';
 import { resumeAudio, startMenuAmbience, stopMenuAmbience } from '../engine/audio.js';
 import { requestMobileAppMode } from '../engine/appMode.js';
+import { makeOptionsPanel } from '../engine/options.js';
 
 // Mobile menu: background first, then choices after the first touch.
 export function showMenu(onStart) {
@@ -41,6 +42,7 @@ export function showMenu(onStart) {
 
   const btnCareer = mkBtn('MODO CARREIRA');
   const btnTut = mkBtn('TUTORIAL');
+  const btnOptions = mkBtn('OPÇÕES');
   const hint = document.createElement('button');
   hint.type = 'button';
   hint.textContent = 'TOCA PARA AVANÇAR';
@@ -49,7 +51,7 @@ export function showMenu(onStart) {
     font-size:clamp(13px,3vw,18px);font-weight:900;letter-spacing:.8px;text-shadow:0 2px 6px #000;
     box-shadow:0 8px 28px #0008;`;
 
-  panel.append(btnCareer, btnTut, hint);
+  panel.append(btnCareer, btnTut, btnOptions, hint);
   root.appendChild(panel);
   document.body.appendChild(root);
   startMenuAmbience();
@@ -64,7 +66,7 @@ export function showMenu(onStart) {
     if (choicesVisible) return;
     choicesVisible = true;
     hint.style.display = 'none';
-    for (const b of [btnCareer, btnTut]) {
+    for (const b of [btnCareer, btnTut, btnOptions]) {
       b.style.display = 'block';
       requestAnimationFrame(() => {
         b.style.opacity = '1';
@@ -89,12 +91,16 @@ export function showMenu(onStart) {
       else go('career');
     } else if (e.code === 'KeyT' && choicesVisible) {
       go('tutorial');
+    } else if (e.code === 'KeyO' && choicesVisible) {
+      e.preventDefault();
+      makeOptionsPanel({ title: 'OPÇÕES' });
     }
   };
 
   hint.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); showChoices(); });
   btnCareer.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); resumeAudio(); go('career'); });
   btnTut.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); resumeAudio(); go('tutorial'); });
+  btnOptions.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); resumeAudio(); makeOptionsPanel({ title: 'OPÇÕES' }); });
   root.addEventListener('pointerdown', () => { requestMobileAppMode(); }, { passive: false });
   window.addEventListener('keydown', onKey);
 }
