@@ -88,6 +88,9 @@ export class OrbitCamera {
   snapBehind(facing) { this.yaw = facing + Math.PI; }   // pôr já atrás das costas
 
   update(dt) {
+    // Durante cutscenes de especiais, a câmara é controlada diretamente pelo Player.
+    if (window.__player?.specialCameraLock) return;
+
     // Mobile build: camera distance is fixed on the normal/intermediate preset.
 
     // controlo manual (Q/E ou rato) — pausa o auto-retorno enquanto se usa
