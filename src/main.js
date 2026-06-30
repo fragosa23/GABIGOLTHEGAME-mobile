@@ -11,6 +11,7 @@ import { PowerBall } from './entities/ball.js';
 import { HUD } from './ui/hud.js';
 import { SpeedFx } from './engine/speedFx.js';
 import { playWhistle, resumeAudio, startGameplayMusic } from './engine/audio.js';
+import { installPauseButton } from './engine/pauseMenu.js';
 import { showMenu } from './ui/menu.js';
 import { runIntro } from './ui/intro.js';
 
@@ -72,11 +73,27 @@ function doKick() {
 }
 
 let won = false;
-let phase = 'menu';    // 'menu' | 'intro' | 'play'
+let phase = 'menu';    // 'menu' | 'intro' | 'gateIntro' | 'play' | 'pause'
 let introT = 0;
 let prevPowers = 0, prevHp = player.hp;
 const clock = new THREE.Clock();
 const tmpVec = new THREE.Vector3();
+
+const pauseControl = installPauseButton({
+  isPlaying: () => phase === 'play' && !won,
+  pause: () => {
+    phase = 'pause';
+    player.controllable = false;
+    document.exitPointerLock?.();
+  },
+  resume: () => {
+    if (phase !== 'pause') return;
+    phase = 'play';
+    player.controllable = true;
+    clock.getDelta();
+  },
+  goMenu: () => location.reload(),
+});
 
 function centerCallout(text, color = '#fff', glow = '#2f9bff') {
   const el = document.createElement('div');
@@ -248,7 +265,7 @@ function loop() {
   requestAnimationFrame(loop);
   let dt = Math.min(clock.getDelta(), 0.05);
 
-  if (phase !== 'menu' && !won) player.update(dt);   // intro: idle; play: controlado
+  if (phase !== 'menu' && phase !== 'pause' && !won) player.update(dt);   // intro: idle; play: controlado
 
   if (phase === 'play' && !won) {
     orbit.setTarget(player.position);
@@ -327,6 +344,7 @@ function loop() {
   else if (phase === 'gateIntro') updateGateIntro(dt);
   else if (phase === 'play') orbit.update(dt);
   hud.setGameplayVisible(phase === 'play' && !won);
+  pauseControl.update(phase === 'play' && !won);
   hud.update(player, dt);
   input.endFrame();
   renderer.render(scene, camera);
@@ -347,6 +365,7 @@ function startIntro() {
 function win() {
   won = true;
   document.exitPointerLock?.();
+  pauseControl.close();
   const stats = {
     enemiesKilled: level.enemies.filter((e) => !e.alive).length,
     enemiesTotal: level.enemies.length,
