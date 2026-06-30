@@ -31,6 +31,9 @@ window.__renderer = renderer; window.__scene = scene; window.__camera = camera;
 // efeito de velocidade (linhas) + desbloqueio de áudio no clique
 const speedFx = new SpeedFx(scene); window.__speedFx = speedFx; window.__hud = hud; window.__orbit = orbit;
 const BASE_FOV = camera.fov, SPRINT_FOV = 72;
+const NORMAL_CAM_DISTANCE = 3.25;
+const NORMAL_CAM_HEIGHT = 1.55;
+const NORMAL_CAM_PITCH = 0.32;
 window.addEventListener('click', resumeAudio);
 
 function randomFieldPoint(y = 1.5) {
@@ -87,15 +90,18 @@ let bossIntro = null;
 let prevPowers = 0, prevHp = player.hp;
 const clock = new THREE.Clock();
 const tmpVec = new THREE.Vector3();
+const bossFocusTarget = new THREE.Vector3();
 
 const pauseBtn = document.createElement('button');
 pauseBtn.type = 'button';
-pauseBtn.textContent = '⏸ PAUSE';
+pauseBtn.textContent = '||';
 pauseBtn.style.cssText = `position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));
   z-index:120;display:none;pointer-events:auto;cursor:pointer;font-family:system-ui,sans-serif;
-  color:#e8f5ff;background:#071226cc;border:1px solid #ffffff88;border-radius:999px;
-  padding:clamp(8px,1.8vh,11px) clamp(13px,3vw,19px);font-size:clamp(11px,2.3vw,15px);
-  font-weight:900;letter-spacing:.5px;text-shadow:0 2px 6px #000;box-shadow:0 8px 24px #0009;`;
+  width:clamp(52px,8.4vw,66px);height:clamp(52px,8.4vw,66px);aspect-ratio:1/1;padding:0;
+  color:#fff;background:radial-gradient(circle at 35% 24%, #ffffff28, #ffffff00 28%), linear-gradient(180deg, #2b385a82, #11182b5f);
+  border:2px solid #ffffff52;border-radius:50%;opacity:.66;font-size:clamp(16px,4vw,22px);
+  font-weight:900;line-height:1;letter-spacing:0;text-shadow:0 2px 6px #000;box-shadow:0 8px 18px #0005, inset 0 4px 12px #ffffff12, inset 0 -8px 14px #0005;
+  align-items:center;justify-content:center;backdrop-filter:blur(4px);`;
 document.body.appendChild(pauseBtn);
 
 let pauseOverlay = null;
@@ -223,7 +229,7 @@ function updateGateIntro(dt) {
 }
 
 function startBossIntro(enemy) {
-  bossIntro = { enemy, t: 0, duration: 5.2 };
+  bossIntro = { enemy, t: 0, duration: 5.8 };
   phase = 'bossIntro';
   player.controllable = false;
   document.exitPointerLock?.();
@@ -244,10 +250,10 @@ function updateBossIntro(dt) {
   e.update(dt, player); // deixa o boss terminar carregamento e lançamento durante a cutscene
 
   const k = Math.min(bossIntro.t / bossIntro.duration, 1);
-  const a = -Math.PI * 0.45 + k * Math.PI * 2.35;
-  const radius = THREE.MathUtils.lerp(18, 9, Math.sin(k * Math.PI) * 0.75 + k * 0.25);
-  const height = THREE.MathUtils.lerp(14, 6.5, k);
-  const target = tmpVec.set(e.position.x, e.position.y + 2.2, e.position.z);
+  const a = -Math.PI * 0.55 + k * Math.PI * 2.15;
+  const radius = THREE.MathUtils.lerp(34, 22, Math.sin(k * Math.PI) * 0.45 + k * 0.25);
+  const height = THREE.MathUtils.lerp(18, 10.5, k);
+  const target = tmpVec.set(e.position.x, e.position.y + 5.0, e.position.z);
 
   camera.position.set(
     target.x + Math.sin(a) * radius,
@@ -261,8 +267,40 @@ function updateBossIntro(dt) {
     phase = 'play';
     player.controllable = true;
     orbit.snapBehind(player.facing);
+    orbit.distance = 12;
+    orbit.height = 4.2;
+    orbit.pitch = 0.48;
     hud.message('⚠️ Derrota o boss final!', 2.5);
   }
+}
+
+function updateBossCombatCamera(dt) {
+  if (!level?.enemies || orbit.firstPerson) {
+    orbit.setTarget(player.position);
+    return false;
+  }
+
+  const boss = level.enemies.find((e) => e.isBoss && e.alive);
+  const d = boss ? Math.hypot(boss.position.x - player.position.x, boss.position.z - player.position.z) : Infinity;
+  const active = boss && d < 28;
+  const smooth = 1 - Math.pow(0.025, dt);
+
+  if (!active) {
+    orbit.setTarget(player.position);
+    orbit.distance = THREE.MathUtils.lerp(orbit.distance, NORMAL_CAM_DISTANCE, smooth);
+    orbit.height = THREE.MathUtils.lerp(orbit.height, NORMAL_CAM_HEIGHT, smooth);
+    orbit.pitch = THREE.MathUtils.lerp(orbit.pitch, NORMAL_CAM_PITCH, smooth * 0.45);
+    return false;
+  }
+
+  const strength = THREE.MathUtils.clamp(1 - (d - 7) / 21, 0.25, 1);
+  bossFocusTarget.lerpVectors(player.position, boss.position, 0.35 + strength * 0.25);
+  bossFocusTarget.y = 1.1 + strength * 1.6;
+  orbit.setTarget(bossFocusTarget);
+  orbit.distance = THREE.MathUtils.lerp(orbit.distance, 10.5 + strength * 4.5, smooth);
+  orbit.height = THREE.MathUtils.lerp(orbit.height, 3.4 + strength * 2.0, smooth);
+  orbit.pitch = THREE.MathUtils.lerp(orbit.pitch, 0.46 + strength * 0.18, smooth * 0.8);
+  return true;
 }
 
 function spawnGateEnemy(isBoss = false) {
@@ -389,9 +427,9 @@ function loop() {
   if (phase !== 'menu' && phase !== 'bossIntro' && phase !== 'pause' && !won) player.update(dt);   // intro: idle; play: controlado
 
   if (phase === 'play' && !won) {
-    orbit.setTarget(player.position);
+    const bossFocus = updateBossCombatCamera(dt);
     // câmara segue atrás do jogador; volta às costas ao mover-se
-    orbit.setFollow(player.facing, Math.hypot(player.velocity.x, player.velocity.z) > 1.2);
+    orbit.setFollow(player.facing, Math.hypot(player.velocity.x, player.velocity.z) > 1.2 && !bossFocus);
     // em 1ª pessoa, o corpo não aparece à frente da câmara
     player.model.visible = !orbit.firstPerson;
 
@@ -405,7 +443,7 @@ function loop() {
     const sp = Math.hypot(player.velocity.x, player.velocity.z);
     const running = player.sprinting && sp > 5 && player.hasSpeed;
     speedFx.update(dt, player.position, new THREE.Vector3(player.velocity.x, 0, player.velocity.z), sp, running);
-    const wantFov = running ? SPRINT_FOV : BASE_FOV;
+    const wantFov = bossFocus ? Math.max(70, running ? SPRINT_FOV : BASE_FOV) : (running ? SPRINT_FOV : BASE_FOV);
     if (Math.abs(camera.fov - wantFov) > 0.05) {
       camera.fov += (wantFov - camera.fov) * Math.min(dt * 5, 1);
       camera.updateProjectionMatrix();
@@ -466,7 +504,7 @@ function loop() {
   else if (phase === 'bossIntro') updateBossIntro(dt);
   else if (phase === 'play') orbit.update(dt);
   hud.setGameplayVisible((phase === 'play' || phase === 'pause') && !won);
-  pauseBtn.style.display = phase === 'play' && !won ? 'block' : 'none';
+  pauseBtn.style.display = phase === 'play' && !won ? 'flex' : 'none';
   hud.update(player, dt);
   input.endFrame();
   renderer.render(scene, camera);
