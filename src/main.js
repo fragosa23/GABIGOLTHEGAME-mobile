@@ -195,7 +195,7 @@ function updateBossIntro(dt) {
 
 function spawnGateEnemy(isBoss = false) {
   const g = level.gate;
-  const idx = g.spawned;
+  const idx = isBoss ? g.totalExtraSpawns : g.spawned;
   const size = isBoss ? 3.0 : 1.08 + idx * 0.035;
   const width = isBoss ? 3.45 : size * (1.05 + idx * 0.008);
   const pos = randomFieldPoint(0);
@@ -215,11 +215,12 @@ function spawnGateEnemy(isBoss = false) {
   enemy.isGateSpawn = true;
   enemy.isBoss = isBoss;
   level.enemies.push(enemy);
-  g.spawned++;
   if (isBoss) {
     g.bossSpawned = true;
     playWhistle();
     startBossIntro(enemy);
+  } else {
+    g.spawned++;
   }
 }
 
@@ -263,13 +264,22 @@ function updateGateEvent(dt) {
     g.leftDoor.position.x = -1.55 - open;
     g.rightDoor.position.x = 1.55 + open;
     g.glow.intensity = 10 + Math.sin(performance.now() * 0.012) * 4;
+
+    const normalGateEnemies = level.enemies.filter((e) => e.isGateSpawn && !e.isBoss);
+    const allNormalSpawned = g.spawned >= g.totalExtraSpawns;
+    const allNormalDefeated = allNormalSpawned && normalGateEnemies.length >= g.totalExtraSpawns && normalGateEnemies.every((e) => !e.alive);
+    const boss = level.enemies.find((e) => e.isGateSpawn && e.isBoss);
+
     g.spawnT -= dt;
-    if (g.spawnT <= 0 && g.spawned < g.totalExtraSpawns) {
-      const next = g.spawned + 1;
-      spawnGateEnemy(next === g.totalExtraSpawns);
-      g.spawnT = next > 24 ? 2.2 : 2.8;
+    if (g.spawnT <= 0 && !allNormalSpawned) {
+      spawnGateEnemy(false);
+      g.spawnT = g.spawned > 24 ? 2.2 : 2.8;
+    } else if (!g.bossSpawned && allNormalDefeated) {
+      spawnGateEnemy(true);
     }
-    if (g.defeated >= g.totalToDefeat) {
+
+    if (g.bossSpawned && boss && !boss.alive) {
+      g.bossDefeated = true;
       destroyGate();
       level.goalActive = true;
       centerCallout('PROCURA A BALIZA DOURADA', '#ffe66b', '#ffd23c');
