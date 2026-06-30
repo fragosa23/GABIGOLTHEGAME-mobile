@@ -1,6 +1,7 @@
 import siiiUrl from '../../assets/siiii.mp3?url';
 import menuMusicUrl from '../../assets/Caldeira_Fury.mp3?url';
 import dragaoMusicUrl from '../../assets/caldeira-bola.mp3?url';
+import { getOptions, onOptionsChange } from './options.js';
 
 let ctx = null;
 function ac() {
@@ -25,7 +26,7 @@ dragaoMusic.preload = 'auto';
 dragaoMusic.volume = 0.58;
 dragaoMusic.loop = true;
 
-let wantedMusic = null;
+let wantedMusic = null; // null | 'menu' | 'tutorial' | 'dragao'
 let menuRestartTimer = null;
 
 function tryPlay(audio) {
@@ -44,10 +45,24 @@ function stopMenuRestart() {
   menuRestartTimer = null;
 }
 
+function musicAllowedForWanted() {
+  const opts = getOptions();
+  if (wantedMusic === 'menu') return opts.menuMusic;
+  if (wantedMusic === 'tutorial' || wantedMusic === 'dragao') return opts.gameplayMusic;
+  return false;
+}
+
 function resumeWantedMusic() {
-  if (wantedMusic === 'menu') tryPlay(menuMusic);
+  if (!musicAllowedForWanted()) {
+    stopAudio(menuMusic);
+    stopAudio(dragaoMusic);
+    return;
+  }
+  if (wantedMusic === 'menu' || wantedMusic === 'tutorial') tryPlay(menuMusic);
   if (wantedMusic === 'dragao') tryPlay(dragaoMusic);
 }
+
+onOptionsChange(() => resumeWantedMusic());
 
 export function startMenuAmbience(options = {}) {
   wantedMusic = 'menu';
@@ -55,9 +70,14 @@ export function startMenuAmbience(options = {}) {
   stopAudio(dragaoMusic);
   menuMusic.loop = !options.restartEvery10;
   menuMusic.currentTime = 0;
+  if (!getOptions().menuMusic) {
+    stopAudio(menuMusic);
+    return;
+  }
   tryPlay(menuMusic);
   if (options.restartEvery10) {
     menuRestartTimer = setInterval(() => {
+      if (!getOptions().menuMusic) return;
       menuMusic.currentTime = 0;
       tryPlay(menuMusic);
     }, 10000);
@@ -71,16 +91,22 @@ export function stopMenuAmbience() {
 }
 
 export function startGameplayMusic(mode) {
+  stopMenuRestart();
   if (mode === 'tutorial') {
-    startMenuAmbience({ restartEvery10: true });
+    wantedMusic = 'tutorial';
+    stopAudio(dragaoMusic);
+    menuMusic.loop = true;
+    menuMusic.currentTime = 0;
+    if (getOptions().gameplayMusic) tryPlay(menuMusic);
+    else stopAudio(menuMusic);
     return;
   }
   wantedMusic = 'dragao';
-  stopMenuRestart();
   stopAudio(menuMusic);
   dragaoMusic.loop = true;
   if (dragaoMusic.paused) dragaoMusic.currentTime = 0;
-  tryPlay(dragaoMusic);
+  if (getOptions().gameplayMusic) tryPlay(dragaoMusic);
+  else stopAudio(dragaoMusic);
 }
 
 let crowd = null;
