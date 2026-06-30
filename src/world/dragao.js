@@ -58,6 +58,7 @@ export function buildDragaoLevel(scene, physics, onReady) {
 
   // objetivo: a baliza Goal_Right, agora no lado -z (centro real ~ (0.67, _, -52.6))
   const goal = new THREE.Vector3(0.67, 1.5, -52.6);
+  const ballSpawnSource = new THREE.Vector3(goal.x, 2.6, goal.z + 2.8);
   // brilho da baliza — acende quando todos os inimigos morrem (peças preenchidas no load)
   const goalGlow = new THREE.PointLight(0xffe14d, 0, 30, 2);
   goalGlow.position.set(goal.x, 3, goal.z); scene.add(goalGlow);
@@ -158,7 +159,7 @@ export function buildDragaoLevel(scene, physics, onReady) {
     enemies.push(e);
   }
 
-  // bolas-poder: espalhadas pelo relvado
+  // bolas-poder iniciais: já espalhadas pelo relvado
   balls.push(new PowerBall(scene, P(-25, -25, 1.5), 'kick'));
   balls.push(new PowerBall(scene, P(-30, 0, 1.5), 'speed'));
   balls.push(new PowerBall(scene, P(-10, 18, 1.5), 'jump'));
@@ -174,13 +175,13 @@ export function buildDragaoLevel(scene, physics, onReady) {
   return {
     spawn, facing: Math.PI,       // virado para -z (a baliza-objetivo)
     balls, enemies, triggers, goal,
-    goalParts, goalGlow, goalAura, // peças/luz/aura da baliza para o brilho
+    goalParts, goalGlow, goalAura, ballSpawnSource, // peças/luz/aura da baliza para o brilho
     gate: {
       group: gate,
       leftDoor,
       rightDoor,
       glow: gateGlow,
-      spawn: new THREE.Vector3(goal.x, 0, goal.z + 8),
+      spawn: new THREE.Vector3(goal.x, 2.2, goal.z + 2.0),
       active: false,
       pending: true,
       intro: false,
@@ -196,8 +197,9 @@ export function buildDragaoLevel(scene, physics, onReady) {
     },
     powerSpawn: {
       pos: new THREE.Vector3(0, 1.5, 52.6),
-      interval: 15,
-      t: 15,
+      source: ballSpawnSource,
+      interval: 10,
+      t: 10,
       index: 0,
       types: ['kick', 'speed', 'jump'],
     },
