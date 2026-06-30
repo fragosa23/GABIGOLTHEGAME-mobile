@@ -169,17 +169,17 @@ export class Enemy {
     return false;
   }
 
-  takeKick(fromPos, force = 1) {
+  takeKick(fromPos, force = 1, damageOverride = null, knockMult = 1) {
     if (!this.alive || this.spawnPhase !== 'idle') return null;
-    const damage = force >= 1.5 ? 2 : 1;   // chute forte tira mais vida
+    const damage = damageOverride ?? (force >= 1.5 ? 2 : 1);
     this.hp -= damage;
     this._updateHpDots();
     const away = new THREE.Vector3().subVectors(this.position, fromPos); away.y = 0;
     if (away.lengthSq() < 0.001) away.set(0, 0, 1);
     away.normalize();
     if (this.hp <= 0) { this.defeat(); return 'defeat'; }
-    this.kb.copy(away).multiplyScalar(9 * force);   // ... e maior knockback
-    this.vy = 6.5 * Math.min(force, 1.8); this.stun = 0.6;
+    this.kb.copy(away).multiplyScalar(9 * force * knockMult);
+    this.vy = 6.5 * Math.min(force, 2.2); this.stun = 0.6 + Math.min(force * 0.08, 0.25);
     return 'hit';
   }
 
