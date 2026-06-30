@@ -14,6 +14,7 @@ import { playWhistle, resumeAudio, startGameplayMusic } from './engine/audio.js'
 import { makeOptionsPanel } from './engine/options.js';
 import { showMenu } from './ui/menu.js';
 import { runIntro } from './ui/intro.js';
+import { CLUBS } from './clubs.js';
 
 const container = document.getElementById('app');
 const { renderer, scene, camera, sun } = createRenderer(container);
@@ -78,19 +79,21 @@ function doKick() {
     const dir = to.clone().normalize();
     if (d < 1.6 || dir.dot(fwd) > -0.25) {
       player.kickHits.add(e);
-      e.takeKick(player.position, player.kickForce);
+      e.takeKick(player.position, player.kickForce, player.kickDamage);
     }
   }
 }
 
 let won = false;
-let phase = 'menu';    // 'menu' | 'intro' | 'gateIntro' | 'bossIntro' | 'play' | 'pause'
+let phase = 'menu';    // 'menu' | 'intro' | 'gateIntro' | 'bossIntro' | 'redSpecial' | 'play' | 'pause'
 let introT = 0;
 let bossIntro = null;
+let redSpecial = null;
 let prevPowers = 0, prevHp = player.hp;
 const clock = new THREE.Clock();
 const tmpVec = new THREE.Vector3();
 const bossFocusTarget = new THREE.Vector3();
+const shockwaves = [];
 
 const pauseBtn = document.createElement('button');
 pauseBtn.type = 'button';
@@ -303,6 +306,125 @@ function updateBossCombatCamera(dt) {
   return true;
 }
 
+function updateSpecialButton() {
+  const btn = document.querySelector('[data-action="special"]');
+  if (!btn) return;
+  const type = player.specialReadyType;
+  if (!type) {
+    btn.textContent = 'ESP.';
+    btn.style.opacity = '.28';
+    btn.style.borderColor = '#ffffff33';
+    btn.style.boxShadow = '0 8px 18px #0005, inset 0 4px 12px #ffffff12, inset 0 -8px 14px #0005';
+    btn.style.background = 'linear-gradient(180deg,#2b385a55,#11182b44)';
+    return;
+  }
+  const c = CLUBS[type];
+  btn.textContent = type === 'speed' ? 'AZUL' : type === 'kick' ? 'VERM.' : 'VERDE';
+  btn.style.opacity = '.92';
+  btn.style.borderColor = '#ffffffcc';
+  btn.style.background = `radial-gradient(circle at 35% 24%, #ffffff55, #ffffff00 28%), linear-gradient(180deg, ${c.ui}, ${c.ui}88)`;
+  btn.style.boxShadow = `0 0 18px ${c.ui}, 0 8px 18px #0007`;
+}
+
+function startSpecial() {
+  const type = player.specialReadyType;
+  if (!type) { hud.message('Especial precisa de 3 bolas iguais.', 1.4); return false; }
+  if (type === 'speed') {
+    if (!player.activateSpecial(type)) return false;
+    centerCallout('ESPECIAL AZUL', '#66b7ff', '#2f7be0');
+    hud.message('Gigante azul: +HP e corpo maior durante 20s!', 2.5);
+    return true;
+  }
+  if (type === 'jump') {
+    if (!player.activateSpecial(type)) return false;
+    centerCallout('ESPECIAL VERDE', '#6dff84', '#27c24a');
+    hud.message('Salto sísmico: aterra para rebentar a área!', 2.5);
+    return true;
+  }
+  if (type === 'kick') {
+    if (!player.activateSpecial(type)) return false;
+    redSpecial = { t: 0, duration: 1.75, hit: false };
+    phase = 'redSpecial';
+    player.controllable = false;
+    document.exitPointerLock?.();
+    centerCallout('ESPECIAL VERMELHO', '#ff5161', '#d11a2a');
+    return true;
+  }
+  return false;
+}
+
+function damageEnemiesInFront(damage = 3) {
+  const fwd = new THREE.Vector3(Math.sin(player.facing), 0, Math.cos(player.facing));
+  for (const e of level.enemies) {
+    if (!e.alive) continue;
+    const to = new THREE.Vector3().subVectors(e.position, player.position); to.y = 0;
+    const d = to.length();
+    if (d > 14) continue;
+    const dir = to.clone().normalize();
+    if (d < 2.2 || dir.dot(fwd) > 0.2) e.takeKick(player.position, 2.8, damage, 2.2);
+  }
+}
+
+function damageEnemiesRadial(pos, radius, damage, force, mega = false) {
+  for (const e of level.enemies) {
+    if (!e.alive) continue;
+    const d = Math.hypot(e.position.x - pos.x, e.position.z - pos.z);
+    if (d > radius) continue;
+    e.takeKick(pos, force, damage, mega ? 2.8 : 1.4);
+  }
+}
+
+function spawnShockwave(pos, color, radius) {
+  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+  const mesh = new THREE.Mesh(new THREE.TorusGeometry(0.65, 0.075, 12, 80), mat);
+  mesh.rotation.x = Math.PI / 2;
+  mesh.position.set(pos.x, pos.y + 0.08, pos.z);
+  scene.add(mesh);
+  shockwaves.push({ mesh, t: 0, duration: 0.55, radius });
+}
+
+function updateShockwaves(dt) {
+  for (let i = shockwaves.length - 1; i >= 0; i--) {
+    const s = shockwaves[i];
+    s.t += dt;
+    const k = Math.min(s.t / s.duration, 1);
+    s.mesh.scale.setScalar(1 + k * s.radius);
+    s.mesh.material.opacity = (1 - k) * 0.85;
+    if (k >= 1) {
+      scene.remove(s.mesh);
+      s.mesh.geometry.dispose();
+      s.mesh.material.dispose();
+      shockwaves.splice(i, 1);
+    }
+  }
+}
+
+function updateRedSpecial(dt) {
+  if (!redSpecial) return;
+  redSpecial.t += dt;
+  const k = Math.min(redSpecial.t / redSpecial.duration, 1);
+  const a = -Math.PI * 0.5 + k * Math.PI * 2.35;
+  const target = tmpVec.set(player.position.x, player.position.y + 1.3, player.position.z);
+  const radius = 6.5;
+  camera.position.set(target.x + Math.sin(a) * radius, target.y + 2.6, target.z + Math.cos(a) * radius);
+  camera.lookAt(target.x, target.y + 0.35, target.z);
+
+  if (!redSpecial.hit && redSpecial.t >= 0.78) {
+    redSpecial.hit = true;
+    player.tryKick();
+    damageEnemiesInFront(3);
+    const fwd = new THREE.Vector3(Math.sin(player.facing), 0, Math.cos(player.facing));
+    spawnShockwave(player.position.clone().addScaledVector(fwd, 2.4), 0xff3040, 8);
+  }
+
+  if (k >= 1) {
+    redSpecial = null;
+    phase = 'play';
+    player.controllable = true;
+    orbit.snapBehind(player.facing);
+  }
+}
+
 function spawnGateEnemy(isBoss = false) {
   const g = level.gate;
   const idx = isBoss ? g.totalExtraSpawns : g.spawned;
@@ -424,22 +546,26 @@ function loop() {
   requestAnimationFrame(loop);
   let dt = Math.min(clock.getDelta(), 0.05);
 
-  if (phase !== 'menu' && phase !== 'bossIntro' && phase !== 'pause' && !won) player.update(dt);   // intro: idle; play: controlado
+  if (phase !== 'menu' && phase !== 'bossIntro' && phase !== 'pause' && !won) player.update(dt);   // intro/redSpecial: sem controlo; play: controlado
 
   if (phase === 'play' && !won) {
     const bossFocus = updateBossCombatCamera(dt);
-    // câmara segue atrás do jogador; volta às costas ao mover-se
     orbit.setFollow(player.facing, Math.hypot(player.velocity.x, player.velocity.z) > 1.2 && !bossFocus);
-    // em 1ª pessoa, o corpo não aparece à frente da câmara
     player.model.visible = !orbit.firstPerson;
 
+    if (input.special()) startSpecial();
     if (input.attack()) player.tryKick();
     if (player.kickActive) doKick();
+
+    const shock = player.consumeLandingShockwave();
+    if (shock) {
+      spawnShockwave(player.position, shock.color, shock.radius);
+      damageEnemiesRadial(player.position, shock.radius, shock.damage, shock.force, shock.mega);
+    }
 
     sun.position.set(player.position.x + 20, 35, player.position.z + 15);
     sun.target.position.copy(player.position);
 
-    // efeito de velocidade SÓ com o poder de velocidade (PORTO/azul): linhas + FOV
     const sp = Math.hypot(player.velocity.x, player.velocity.z);
     const running = player.sprinting && sp > 5 && player.hasSpeed;
     speedFx.update(dt, player.position, new THREE.Vector3(player.velocity.x, 0, player.velocity.z), sp, running);
@@ -462,12 +588,10 @@ function loop() {
       startGateIntro();
     }
 
-    // feedback quando perde poder / HP
-    if (player.powerCount < prevPowers) hud.message('⚠️ Roubaram-te um poder!', 2.5);
-    else if (player.hp < prevHp) hud.message('💔 Sem poderes — estás a perder HP! Apanha bolas.', 2.5);
+    if (player.powerCount < prevPowers) hud.message(player.hasShield ? '🛡️ Escudo azul ativo.' : '⚠️ Poder consumido!', 2.0);
+    else if (player.hp < prevHp) hud.message('💔 Sem escudo — estás a perder HP! Apanha bolas.', 2.5);
     prevPowers = player.powerCount; prevHp = player.hp;
 
-    // todos os inimigos eliminados -> a baliza-objetivo acende e o golo passa a contar
     if (!level.gate && level.requireClear && !level.goalActive &&
         level.enemies.length && level.enemies.every((e) => !e.alive)) {
       level.goalActive = true;
@@ -475,7 +599,7 @@ function loop() {
       centerCallout('PROCURA A BALIZA DOURADA', '#ffe66b', '#ffd23c');
     }
     if (level.goalActive) {
-      const pulse = 0.6 + Math.sin(performance.now() * 0.006) * 0.4; // 0.2..1.0
+      const pulse = 0.6 + Math.sin(performance.now() * 0.006) * 0.4;
       if (level.goalGlow) level.goalGlow.intensity = 18 + pulse * 28;
       if (level.goalParts) for (const m of level.goalParts) m.material.emissiveIntensity = 1.2 + pulse * 2.8;
       if (level.goalAura) {
@@ -490,7 +614,7 @@ function loop() {
 
     for (const t of level.triggers) {
       if (t.fired) continue;
-      if (t.type === 'goal' && level.requireClear && !level.goalActive) continue; // baliza fechada até limpar
+      if (t.type === 'goal' && level.requireClear && !level.goalActive) continue;
       if (Math.hypot(player.position.x - t.pos.x, player.position.z - t.pos.z) < t.r) {
         t.fired = true;
         if (t.type === 'msg') continue;
@@ -499,11 +623,15 @@ function loop() {
     }
   }
 
+  updateShockwaves(dt);
+  updateSpecialButton();
+
   if (phase === 'intro') { introT += dt; introCamera(); }
   else if (phase === 'gateIntro') updateGateIntro(dt);
   else if (phase === 'bossIntro') updateBossIntro(dt);
+  else if (phase === 'redSpecial') updateRedSpecial(dt);
   else if (phase === 'play') orbit.update(dt);
-  hud.setGameplayVisible((phase === 'play' || phase === 'pause') && !won);
+  hud.setGameplayVisible((phase === 'play' || phase === 'pause' || phase === 'redSpecial') && !won);
   pauseBtn.style.display = phase === 'play' && !won ? 'flex' : 'none';
   hud.update(player, dt);
   input.endFrame();
@@ -518,7 +646,7 @@ function startIntro() {
   runIntro(
     ['Parece que o estádio foi invadido por jogadores do Benfica que viraram monstros!',
      'Vou ter de salvar o futebol!'],
-    () => { phase = 'play'; player.controllable = true; orbit.snapBehind(player.facing); } // câmara nas costas
+    () => { phase = 'play'; player.controllable = true; orbit.snapBehind(player.facing); }
   );
 }
 
@@ -534,12 +662,10 @@ function win() {
     ballsCollected: player.coins,
     ballsTotal: level.balls.length,
   };
-  // CONTINUAR -> volta ao menu inicial (recarrega para um jogo limpo)
   hud.endScreen('GOLO! 🥅', stats, () => location.reload());
 }
 
 loop();
-// menu inicial: escolhe TUTORIAL ou MODO CARREIRA -> constrói o nível -> intro
 showMenu((mode) => setupWorld(mode, startIntro));
-window.__startGame = (mode) => setupWorld(mode || 'career', startIntro); // hook p/ testes
+window.__startGame = (mode) => setupWorld(mode || 'career', startIntro);
 console.log('%cG.CALDEIRA 8 — Prologue', 'color:#3fae4a;font-weight:bold');
