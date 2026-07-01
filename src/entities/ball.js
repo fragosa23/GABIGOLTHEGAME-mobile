@@ -151,7 +151,7 @@ export class PowerBall {
       this.collect();
       player.givePower(this.type);
       player.coins++;
-      return this.type;
+      return { type: this.type, count: Math.max(1, Math.min(3, player.powerCounts?.[this.type] || 1)) };
     }
     return null;
   }
