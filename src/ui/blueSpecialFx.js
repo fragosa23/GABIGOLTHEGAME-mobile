@@ -102,6 +102,7 @@ function installBlueSpecialPatch(player) {
     if (ok && type === 'speed') {
       // O especial azul deixa de curar tudo de uma vez: passa a regenerar durante o estado gigante.
       this.hp = Math.min(this.maxHp, hpBefore);
+      this.invuln = 0;
       this.blueRegenT = Math.max(this.blueRegenT || 0, this.giantT || 20);
       blueSpecialBurst(this);
     }
@@ -120,7 +121,6 @@ function installBlueSpecialPatch(player) {
     if (!this.dead && this.giantT > 0) {
       this.maxHp = Math.max(this.maxHp, 180);
       this.hp = Math.min(this.maxHp, this.hp + dt * 10);
-      this.invuln = Math.max(this.invuln, 0.08);
       if (this.shieldFx) {
         this.shieldFx.visible = true;
         this.shieldFx.scale.setScalar(1.12 + Math.sin(performance.now() * 0.007) * 0.035);
