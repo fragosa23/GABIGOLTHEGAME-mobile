@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CLUBS } from '../clubs.js';
 import { ballTexture } from '../entities/ball.js';
+import blueSpecialPortrait from '../../assets/IMG_1807.png?url';
 import greenSpecialPortrait from '../../assets/IMG_1809.png?url';
 
 const POWER_KEYS = ['speed', 'kick', 'jump'];
@@ -33,47 +34,69 @@ function makeSimpleAura(color, size) {
   return group;
 }
 
-function showGreenSpecialCutscene() {
-  const old = document.getElementById('greenSpecialPortraitFx');
+function showSpecialPortraitCutscene({ id, portrait, text, color, glow }) {
+  const old = document.getElementById(id);
   old?.remove();
 
   const el = document.createElement('div');
-  el.id = 'greenSpecialPortraitFx';
+  el.id = id;
   el.style.cssText = `position:fixed;inset:0;z-index:92;display:flex;align-items:center;justify-content:center;
     pointer-events:none;font-family:system-ui,sans-serif;overflow:hidden;`;
 
   el.innerHTML = `
-    <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 48%, #27c24a38 0 24%, #06120a00 58%);"></div>
-    <img src="${greenSpecialPortrait}" style="position:absolute;right:clamp(12px,6vw,70px);bottom:0;
+    <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 48%, ${glow}38 0 24%, #06120a00 58%);"></div>
+    <img src="${portrait}" style="position:absolute;right:clamp(12px,6vw,70px);bottom:0;
       max-height:min(82vh,560px);max-width:min(46vw,430px);object-fit:contain;
-      filter:drop-shadow(0 12px 28px #000d) drop-shadow(0 0 22px #27c24acc);
+      filter:drop-shadow(0 12px 28px #000d) drop-shadow(0 0 22px ${glow}cc);
       transform:translateX(38px) scale(.88);opacity:0;transition:transform .28s cubic-bezier(.2,1.5,.4,1),opacity .18s;" />
     <div style="position:absolute;left:50%;top:48%;transform:translate(-50%,-50%) scale(.55);
-      color:#6dff84;font-size:clamp(34px,8vw,76px);font-weight:1000;letter-spacing:2px;text-align:center;
-      text-shadow:0 7px 24px #000e,0 0 22px #27c24a,0 0 42px #27c24a;
-      opacity:0;transition:transform .36s cubic-bezier(.2,1.7,.4,1),opacity .18s;">SIIIIIIIIIIII</div>`;
+      color:${color};font-size:clamp(34px,8vw,76px);font-weight:1000;letter-spacing:2px;text-align:center;
+      text-shadow:0 7px 24px #000e,0 0 22px ${glow},0 0 42px ${glow};
+      opacity:0;transition:transform .36s cubic-bezier(.2,1.7,.4,1),opacity .18s;">${text}</div>`;
 
   document.body.appendChild(el);
   const img = el.querySelector('img');
-  const text = el.querySelector('div:last-child');
+  const title = el.querySelector('div:last-child');
   requestAnimationFrame(() => {
     if (img) { img.style.opacity = '1'; img.style.transform = 'translateX(0) scale(1)'; }
-    if (text) { text.style.opacity = '1'; text.style.transform = 'translate(-50%,-50%) scale(1)'; }
+    if (title) { title.style.opacity = '1'; title.style.transform = 'translate(-50%,-50%) scale(1)'; }
   });
   setTimeout(() => {
     if (img) { img.style.opacity = '0'; img.style.transform = 'translateX(28px) scale(.96)'; }
-    if (text) text.style.opacity = '0';
+    if (title) title.style.opacity = '0';
   }, 1450);
   setTimeout(() => el.remove(), 1900);
 }
 
+function showBlueSpecialCutscene() {
+  showSpecialPortraitCutscene({
+    id: 'blueSpecialPortraitFx',
+    portrait: blueSpecialPortrait,
+    text: 'Super Caldeira',
+    color: '#66b7ff',
+    glow: '#2f7be0',
+  });
+}
+
+function showGreenSpecialCutscene() {
+  showSpecialPortraitCutscene({
+    id: 'greenSpecialPortraitFx',
+    portrait: greenSpecialPortrait,
+    text: 'SIIIIIIIIIIII',
+    color: '#6dff84',
+    glow: '#27c24a',
+  });
+}
+
 function installPlayerSpecialPatch(player) {
-  if (!player || player.__greenSpecialPortraitPatch) return;
-  player.__greenSpecialPortraitPatch = true;
+  if (!player || player.__specialPortraitPatch) return;
+  player.__specialPortraitPatch = true;
   const oldActivateSpecial = player.activateSpecial.bind(player);
   player.activateSpecial = function patchedActivateSpecial(type) {
     const ok = oldActivateSpecial(type);
-    if (ok && type === 'jump') showGreenSpecialCutscene();
+    if (!ok) return ok;
+    if (type === 'speed') showBlueSpecialCutscene();
+    if (type === 'jump') showGreenSpecialCutscene();
     return ok;
   };
 }
@@ -214,7 +237,7 @@ function tryInstall() {
 
 const timer = setInterval(() => {
   tryInstall();
-  if (window.__player?.__greenSpecialPortraitPatch && window.__player?.__powerVisualPatch && window.__hud?.__powerHudPatch) clearInterval(timer);
+  if (window.__player?.__specialPortraitPatch && window.__player?.__powerVisualPatch && window.__hud?.__powerHudPatch) clearInterval(timer);
 }, 50);
 tryInstall();
 animatePowerVisuals();
