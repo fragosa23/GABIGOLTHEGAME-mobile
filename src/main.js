@@ -14,6 +14,7 @@ import { playWhistle, resumeAudio, startGameplayMusic } from './engine/audio.js'
 import { makeOptionsPanel } from './engine/options.js';
 import { showMenu } from './ui/menu.js';
 import { runIntro } from './ui/intro.js';
+import { showGameOver } from './ui/gameOver.js';
 import { CLUBS } from './clubs.js';
 
 const container = document.getElementById('app');
@@ -25,6 +26,7 @@ const hud = new HUD();
 orbit.onChange((name) => hud.cameraLabel(name));
 
 let level = null;          // construído ao escolher o modo no menu
+let currentMode = 'career';
 const player = new Player(scene, physics, input, orbit);
 window.__player = player; // debug/test hook
 window.__renderer = renderer; window.__scene = scene; window.__camera = camera;
@@ -47,6 +49,8 @@ function randomFieldPoint(y = 1.5) {
 
 // constrói o nível escolhido (tutorial=procedural | career=estádio Dragão, async)
 function setupWorld(mode, onReady) {
+  currentMode = mode || 'career';
+  window.__currentMode = currentMode;
   const afterBuild = () => {
     player.setSpawn(level.spawn);
     if (level.facing != null) { player.facing = level.facing; player.model.rotation.y = level.facing; }
@@ -54,7 +58,7 @@ function setupWorld(mode, onReady) {
       new THREE.Box3(b.min.clone(), b.max.clone()).expandByScalar(0.25)));
     prevHp = player.hp; prevPowers = player.powerCount;
   };
-  if (mode === 'tutorial') {
+  if (currentMode === 'tutorial') {
     level = buildLevel(scene, physics); afterBuild(); onReady();
   } else {
     level = buildDragaoLevel(scene, physics, (root) => {
@@ -85,7 +89,8 @@ function doKick() {
 }
 
 let won = false;
-let phase = 'menu';    // 'menu' | 'intro' | 'gateIntro' | 'bossIntro' | 'redSpecial' | 'play' | 'pause'
+let gameOverShown = false;
+let phase = 'menu';    // 'menu' | 'intro' | 'gateIntro' | 'bossIntro' | 'redSpecial' | 'play' | 'pause' | 'gameOver'
 let introT = 0;
 let bossIntro = null;
 let redSpecial = null;
@@ -145,7 +150,7 @@ function showPauseMenu() {
 }
 
 function pauseGame() {
-  if (phase !== 'play' || won) return;
+  if (phase !== 'play' || won || player.dead) return;
   phase = 'pause';
   player.controllable = false;
   document.exitPointerLock?.();
@@ -542,13 +547,36 @@ function updatePowerSpawns(dt) {
   }));
 }
 
+function gameOver() {
+  if (gameOverShown || won) return;
+  gameOverShown = true;
+  phase = 'gameOver';
+  player.controllable = false;
+  document.exitPointerLock?.();
+  pauseOverlay?.remove();
+  pauseOverlay = null;
+  pauseBtn.style.display = 'none';
+  showGameOver({
+    onRetry: () => {
+      sessionStorage.setItem('gabigol_retry_mode', currentMode || 'career');
+      location.reload();
+    },
+    onMenu: () => {
+      sessionStorage.removeItem('gabigol_retry_mode');
+      location.reload();
+    },
+  });
+}
+window.__gameOver = gameOver;
+
 function loop() {
   requestAnimationFrame(loop);
   let dt = Math.min(clock.getDelta(), 0.05);
 
-  if (phase !== 'menu' && phase !== 'bossIntro' && phase !== 'pause' && !won) player.update(dt);   // intro/redSpecial: sem controlo; play: controlado
+  if (phase !== 'menu' && phase !== 'bossIntro' && phase !== 'pause' && phase !== 'gameOver' && !won) player.update(dt);   // intro/redSpecial: sem controlo; play: controlado
+  if (player.dead && phase !== 'gameOver' && !won) gameOver();
 
-  if (phase === 'play' && !won) {
+  if (phase === 'play' && !won && !player.dead) {
     const bossFocus = updateBossCombatCamera(dt);
     orbit.setFollow(player.facing, Math.hypot(player.velocity.x, player.velocity.z) > 1.2 && !bossFocus);
     player.model.visible = !orbit.firstPerson;
@@ -632,7 +660,7 @@ function loop() {
   else if (phase === 'redSpecial') updateRedSpecial(dt);
   else if (phase === 'play') orbit.update(dt);
   hud.setGameplayVisible((phase === 'play' || phase === 'pause' || phase === 'redSpecial') && !won);
-  pauseBtn.style.display = phase === 'play' && !won ? 'flex' : 'none';
+  pauseBtn.style.display = phase === 'play' && !won && !player.dead ? 'flex' : 'none';
   hud.update(player, dt);
   input.endFrame();
   renderer.render(scene, camera);
@@ -665,7 +693,19 @@ function win() {
   hud.endScreen('GOLO! 🥅', stats, () => location.reload());
 }
 
+function startMode(mode) {
+  currentMode = mode || 'career';
+  window.__currentMode = currentMode;
+  setupWorld(currentMode, startIntro);
+}
+
 loop();
-showMenu((mode) => setupWorld(mode, startIntro));
-window.__startGame = (mode) => setupWorld(mode || 'career', startIntro);
+const retryMode = sessionStorage.getItem('gabigol_retry_mode');
+if (retryMode) {
+  sessionStorage.removeItem('gabigol_retry_mode');
+  startMode(retryMode);
+} else {
+  showMenu(startMode);
+}
+window.__startGame = startMode;
 console.log('%cG.CALDEIRA 8 — Prologue', 'color:#3fae4a;font-weight:bold');
