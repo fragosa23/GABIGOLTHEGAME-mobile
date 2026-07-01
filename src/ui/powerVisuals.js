@@ -34,6 +34,13 @@ function makeSimpleAura(color, size) {
   return group;
 }
 
+function removeGenericSpecialCallouts() {
+  for (const el of [...document.body.children]) {
+    const txt = (el.textContent || '').trim().toUpperCase();
+    if (txt === 'ESPECIAL AZUL' || txt === 'ESPECIAL VERDE') el.remove();
+  }
+}
+
 function showSpecialPortraitCutscene({ id, portrait, text, color, glow }) {
   const old = document.getElementById(id);
   old?.remove();
@@ -44,13 +51,14 @@ function showSpecialPortraitCutscene({ id, portrait, text, color, glow }) {
     pointer-events:none;font-family:system-ui,sans-serif;overflow:hidden;`;
 
   el.innerHTML = `
-    <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 48%, ${glow}38 0 24%, #06120a00 58%);"></div>
-    <img src="${portrait}" style="position:absolute;right:clamp(12px,6vw,70px);bottom:0;
-      max-height:min(82vh,560px);max-width:min(46vw,430px);object-fit:contain;
-      filter:drop-shadow(0 12px 28px #000d) drop-shadow(0 0 22px ${glow}cc);
-      transform:translateX(38px) scale(.88);opacity:0;transition:transform .28s cubic-bezier(.2,1.5,.4,1),opacity .18s;" />
-    <div style="position:absolute;left:50%;top:48%;transform:translate(-50%,-50%) scale(.55);
-      color:${color};font-size:clamp(34px,8vw,76px);font-weight:1000;letter-spacing:2px;text-align:center;
+    <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 52%, ${glow}42 0 25%, #06120a00 62%);"></div>
+    <img src="${portrait}" style="position:absolute;left:50%;top:54%;
+      max-height:min(76vh,560px);max-width:min(72vw,560px);object-fit:contain;
+      filter:drop-shadow(0 14px 30px #000e) drop-shadow(0 0 24px ${glow}cc);
+      transform:translate(-50%,-50%) scale(.86);opacity:0;transition:transform .28s cubic-bezier(.2,1.5,.4,1),opacity .18s;" />
+    <div style="position:absolute;left:50%;top:11%;transform:translateX(-50%) scale(.55);
+      color:${color};font-size:clamp(36px,8.5vw,82px);font-weight:1000;letter-spacing:2px;text-align:center;
+      width:100vw;padding:0 4vw;box-sizing:border-box;
       text-shadow:0 7px 24px #000e,0 0 22px ${glow},0 0 42px ${glow};
       opacity:0;transition:transform .36s cubic-bezier(.2,1.7,.4,1),opacity .18s;">${text}</div>`;
 
@@ -58,11 +66,15 @@ function showSpecialPortraitCutscene({ id, portrait, text, color, glow }) {
   const img = el.querySelector('img');
   const title = el.querySelector('div:last-child');
   requestAnimationFrame(() => {
-    if (img) { img.style.opacity = '1'; img.style.transform = 'translateX(0) scale(1)'; }
-    if (title) { title.style.opacity = '1'; title.style.transform = 'translate(-50%,-50%) scale(1)'; }
+    removeGenericSpecialCallouts();
+    if (img) { img.style.opacity = '1'; img.style.transform = 'translate(-50%,-50%) scale(1)'; }
+    if (title) { title.style.opacity = '1'; title.style.transform = 'translateX(-50%) scale(1)'; }
   });
+  setTimeout(removeGenericSpecialCallouts, 0);
+  setTimeout(removeGenericSpecialCallouts, 80);
+  setTimeout(removeGenericSpecialCallouts, 220);
   setTimeout(() => {
-    if (img) { img.style.opacity = '0'; img.style.transform = 'translateX(28px) scale(.96)'; }
+    if (img) { img.style.opacity = '0'; img.style.transform = 'translate(-50%,-50%) scale(.96)'; }
     if (title) title.style.opacity = '0';
   }, 1450);
   setTimeout(() => el.remove(), 1900);
