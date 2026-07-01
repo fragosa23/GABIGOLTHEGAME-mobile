@@ -1,5 +1,18 @@
 import { CLUBS } from '../clubs.js';
 
+const POWER_PICKUP_TEXT = {
+  speed: ['VELOCIDADE RÁPIDA', 'ESCUDO PROTEÇÃO', 'ESPECIAL ACTIVO!'],
+  kick: ['CHUTO PODEROSO', 'CHUTO PODEROSO 2', 'ESPECIAL ACTIVO!'],
+  jump: ['SALTO DUPLO', 'SALTO ESMAGADOR', 'ESPECIAL ACTIVO!'],
+};
+
+function pickupLabel(club, count = 1) {
+  const key = typeof club === 'object' ? club.type : club;
+  const n = typeof club === 'object' ? club.count : count;
+  const idx = Math.max(0, Math.min(2, (n || 1) - 1));
+  return POWER_PICKUP_TEXT[key]?.[idx] || CLUBS[key]?.power || '';
+}
+
 // HUD em DOM por cima do canvas.
 export class HUD {
   constructor() {
@@ -21,6 +34,7 @@ export class HUD {
       <style>
         @keyframes hudspin { to { transform: rotate(360deg); } }
         @keyframes hudpulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+        @keyframes hudblink { 0%,100% { opacity:1; filter:brightness(1.35); } 50% { opacity:.28; filter:brightness(.7); } }
       </style>
       <div id="clubpop" style="position:absolute;top:32%;left:50%;transform:translate(-50%,-50%) scale(.6);
         display:flex;flex-direction:column;align-items:center;gap:14px;opacity:0;
@@ -122,6 +136,9 @@ export class HUD {
     this.el.popemblem.style.height = '72%';
     this.el.poplabel.style.fontSize = 'clamp(20px, 5vw, 38px)';
     this.el.poplabel.style.letterSpacing = '.5px';
+    this.el.poplabel.style.maxWidth = '86vw';
+    this.el.poplabel.style.textAlign = 'center';
+    this.el.poplabel.style.lineHeight = '1.05';
 
     this.el.msg.style.background = '#07122699';
     this.el.msg.style.border = '1px solid #ffffff66';
@@ -180,20 +197,30 @@ export class HUD {
       if (this._popTimer <= 0) {
         this.el.clubpop.style.opacity = '0';
         this.el.clubpop.style.transform = 'translate(-50%,-50%) scale(.6)';
+        this.el.poplabel.style.animation = 'none';
       }
     }
     if (this._camTimer > 0) { this._camTimer -= dt; if (this._camTimer <= 0) this.el.cam.style.opacity = '0'; }
   }
 
-  // emblema animado com fundo da cor da bola + nome do PODER ganho
-  clubPop(club) {
+  // emblema animado com fundo da cor da bola + nome do efeito ganho naquele nível
+  clubPop(clubInfo, count = 1) {
+    const club = typeof clubInfo === 'object' ? clubInfo.type : clubInfo;
+    const n = typeof clubInfo === 'object' ? clubInfo.count : count;
     const c = CLUBS[club];
+    if (!c) return;
+    const special = n >= 3;
     this.el.popemblem.src = c.emblem;
-    this.el.poplabel.textContent = c.power;
-    this.el.poplabel.style.color = c.ui;
+    this.el.poplabel.textContent = pickupLabel(club, n);
+    this.el.poplabel.style.color = special ? '#ffffff' : c.ui;
+    this.el.poplabel.style.animation = special ? 'hudblink .32s steps(2,end) infinite' : 'none';
+    this.el.poplabel.style.textShadow = special
+      ? `0 4px 18px #000e, 0 0 16px ${c.ui}, 0 0 34px ${c.ui}`
+      : '0 4px 18px #000c, 0 0 14px currentColor';
     this.el.popbg.style.background = `radial-gradient(circle at 50% 42%, ${c.ui}, ${c.ui}66 60%, ${c.ui}00 72%)`;
-    this.el.popring.style.borderTopColor = c.ui;
+    this.el.popring.style.borderTopColor = special ? '#fff' : c.ui;
     this.el.popring.style.borderRightColor = c.ui + '55';
+    this.el.popring.style.boxShadow = special ? `0 0 22px ${c.ui}` : 'none';
     // reflow para reiniciar a animação de entrada
     this.el.clubpop.style.transition = 'none';
     this.el.clubpop.style.transform = 'translate(-50%,-50%) scale(.4) rotate(-8deg)';
@@ -202,7 +229,7 @@ export class HUD {
     this.el.clubpop.style.transition = 'transform .45s cubic-bezier(.2,1.5,.4,1),opacity .35s';
     this.el.clubpop.style.transform = 'translate(-50%,-50%) scale(1) rotate(0deg)';
     this.el.clubpop.style.opacity = '1';
-    this._popTimer = 1.8;
+    this._popTimer = special ? 2.2 : 1.8;
   }
 
   cameraLabel(name) {
