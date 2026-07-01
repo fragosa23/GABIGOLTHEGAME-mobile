@@ -60,6 +60,7 @@ function runPlayerSpecialCamera(player, type, duration = 1.25) {
 
 export class Player {
   constructor(scene, physics, input, orbit) {
+    this.scene = scene;
     this.physics = physics; this.input = input; this.orbit = orbit;
 
     // grupo exterior sincronizado com a física (pés em y=0)
@@ -95,6 +96,27 @@ export class Player {
     );
     this.shieldFx.visible = false; this.model.add(this.shieldFx);
 
+    // aura azul do especial: só aparece durante a cutscene de transformação.
+    this.blueAura = new THREE.Group();
+    this.blueAura.visible = false;
+    this.blueAuraRings = [];
+    const blueAuraMat = new THREE.MeshBasicMaterial({
+      color: 0x2f7be0,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    for (let i = 0; i < 3; i++) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.75 + i * 0.18, 0.035, 8, 48), blueAuraMat.clone());
+      ring.rotation.x = Math.PI / 2;
+      ring.rotation.z = i * Math.PI / 3;
+      ring.userData.offset = i / 3;
+      this.blueAura.add(ring);
+      this.blueAuraRings.push(ring);
+    }
+    this.model.add(this.blueAura);
+
     // efeito de chuto forte / especial vermelho
     this.kickFx = new THREE.Mesh(
       new THREE.TorusGeometry(0.4, 0.08, 10, 36),
@@ -119,6 +141,7 @@ export class Player {
     this.maxHp = 100; this.hp = 100; this.invuln = 0; this.coins = 0;
     this.dead = false;
     this.giantT = 0;
+    this.blueAuraT = 0;
     this.greenMegaLanding = false;
     this.greenAirInvuln = false;
     this.didDoubleJump = false;
@@ -141,6 +164,7 @@ export class Player {
   get hasShield() { return this.blue >= 2; }
   get hasKick() { return this.red > 0; }
   get hasJump() { return this.green > 0; }
+  get hasBlueSpecial() { return this.giantT > 0; }
   get maxJumps() { return this.hasJump ? 2 : 1; }
   get kickRange() { return 3.4 + (this.red > 0 ? 0.8 : 0) + (this.red >= 2 ? 0.4 : 0); }
   get kickDamage() { return this.red >= 2 ? 3 : this.red >= 1 ? 2 : 1; }
@@ -171,7 +195,7 @@ export class Player {
     const fwd = this.orbit.forward(), right = this.orbit.right();
     this.sprinting = this.input.sprint() && len > 0.001;
     const speedBoost = this.hasSpeed ? 1.5 : 1;
-    const giantBoost = this.giantT > 0 ? 1.12 : 1;
+    const giantBoost = this.hasBlueSpecial ? 1.65 : 1;
     const speed = (this.sprinting ? 7.5 : 5) * speedBoost * giantBoost;
     const accel = 60, friction = 12;
 
@@ -217,8 +241,10 @@ export class Player {
     if (this.giantT > 0) {
       this.giantT -= dt;
       this.maxHp = 180;
+      this.hp = Math.min(this.maxHp, this.hp + 10 * dt); // regeneração gradual durante o especial azul
       this.model.scale.setScalar(THREE.MathUtils.damp(this.model.scale.x, 1.55, 8, dt));
       if (this.giantT <= 0) {
+        this.giantT = 0;
         this.maxHp = this.baseMaxHp;
         this.hp = Math.min(this.hp, this.maxHp);
       }
@@ -233,7 +259,7 @@ export class Player {
         speed: sp,
         grounded: this.grounded,
         sprint: this.sprinting,
-        fastRun: this.hasSpeed,
+        fastRun: this.hasSpeed || this.hasBlueSpecial,
         jumps: this.jumps,
         jumpEvent: this._jumpEvent,
         kickEvent: this._kickEvent,
@@ -252,9 +278,31 @@ export class Player {
       this.glow.intensity = (0.35 + Math.min(this.powerCount, 6) * 0.22) * (1 + Math.sin(performance.now() * 0.006) * 0.2);
     }
 
-    this.shieldFx.visible = this.hasShield;
-    this.shieldFx.material.opacity = this.hasShield ? 0.18 + Math.sin(performance.now() * 0.006) * 0.06 : 0;
-    this.shieldFx.rotation.y += dt * 0.8;
+    const blueShield = this.hasShield || this.hasBlueSpecial;
+    this.shieldFx.visible = blueShield;
+    this.shieldFx.material.opacity = blueShield ? (this.hasBlueSpecial ? 0.28 : 0.18) + Math.sin(performance.now() * 0.006) * 0.06 : 0;
+    this.shieldFx.rotation.y += dt * (this.hasBlueSpecial ? 1.6 : 0.8);
+    this.shieldFx.rotation.x += this.hasBlueSpecial ? dt * 0.55 : 0;
+
+    if (this.blueAuraT > 0) {
+      this.blueAuraT -= dt;
+      const total = 1.55;
+      const left = Math.max(this.blueAuraT, 0);
+      const baseK = 1 - left / total;
+      this.blueAura.visible = true;
+      this.blueAura.position.y = 0.95;
+      this.blueAura.rotation.y += dt * 2.2;
+      for (const ring of this.blueAuraRings) {
+        const k = (baseK + ring.userData.offset) % 1;
+        const pulse = Math.sin(k * Math.PI);
+        ring.scale.setScalar(1.1 + k * 2.2);
+        ring.material.opacity = pulse * 0.62;
+        ring.rotation.z += dt * (1.2 + ring.userData.offset * 2.4);
+      }
+    } else if (this.blueAura.visible) {
+      this.blueAura.visible = false;
+      for (const ring of this.blueAuraRings) ring.material.opacity = 0;
+    }
 
     // efeito de chute forte (onda a expandir à frente)
     if (this.kickFxT > 0) {
@@ -408,14 +456,25 @@ export class Player {
     this.glow.color.setHex(CLUBS[this.topClub || this.powers[0]].ring);
   }
 
+  blueSpecialRepulse(radius = 15, force = 2.4) {
+    const enemies = window.__enemies ? [...window.__enemies] : [];
+    for (const e of enemies) {
+      if (!e?.alive || e.spawnPhase !== 'idle') continue;
+      const d = Math.hypot(e.position.x - this.position.x, e.position.z - this.position.z);
+      if (d > radius) continue;
+      e.takeKick(this.position, force, 0, 2.4); // empurra sem dano
+    }
+  }
+
   activateSpecial(type) {
     if (this.dead || !type || this.powerCounts[type] < 3) return false;
     this.consumePower(type, 3);
     if (type === 'speed') {
       this.giantT = 20;
+      this.blueAuraT = 1.55;
       this.maxHp = 180;
-      this.hp = Math.min(this.maxHp, this.hp + 80);
-      this.invuln = Math.max(this.invuln, 1.2);
+      this.invuln = Math.max(this.invuln, 0.35);
+      this.blueSpecialRepulse(16, 2.8);
       runPlayerSpecialCamera(this, 'speed', 1.25);
       return true;
     }
@@ -444,6 +503,7 @@ export class Player {
 
   hit(enemyPos) {
     if (this.dead || this.invuln > 0 || (this.greenAirInvuln && !this.grounded)) return false;
+    if (this.hasBlueSpecial) return 'shield';
     const away = new THREE.Vector3().subVectors(this.position, enemyPos); away.y = 0;
     if (away.lengthSq() < 0.001) away.set(0, 0, 1);
     away.normalize().multiplyScalar(7);
@@ -461,6 +521,7 @@ export class Player {
       this.controllable = false;
       this.sprinting = false;
       this.greenAirInvuln = false;
+      this.blueAuraT = 0;
       this.giantT = 0;
       window.__gameOver?.();
       return 'down';
@@ -471,6 +532,7 @@ export class Player {
   respawn(toSpawn) {
     if (toSpawn) this.position.copy(this._spawn);
     this.greenAirInvuln = false;
+    this.blueAuraT = 0;
     this.velocity.set(0, 0, 0);
   }
 }
