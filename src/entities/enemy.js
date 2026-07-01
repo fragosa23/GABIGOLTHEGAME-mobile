@@ -80,6 +80,7 @@ export class Enemy {
     this._runPhase = Math.random() * 6;
 
     this.model = this._build(opts);
+    this.model.userData.enemy = this;
     if (opts.scale || opts.widthScale) {
       const s = opts.scale ?? 1;
       const w = opts.widthScale ?? s;
@@ -101,6 +102,8 @@ export class Enemy {
     }
     this.model.position.copy(this.position);
     scene.add(this.model);
+    window.__enemies ??= new Set();
+    window.__enemies.add(this);
 
     this.trail = null;
     this.trailMat = null;
@@ -304,6 +307,7 @@ export class Enemy {
   defeat() {
     this.alive = false;
     hideBossHud(this);
+    window.__enemies?.delete(this);
     this.scene.remove(this.model);
     if (this.trail) this.scene.remove(this.trail);
   }
