@@ -117,6 +117,7 @@ export class Player {
     this.lastPower = null;
     this.baseMaxHp = 100;
     this.maxHp = 100; this.hp = 100; this.invuln = 0; this.coins = 0;
+    this.dead = false;
     this.giantT = 0;
     this.greenMegaLanding = false;
     this.greenAirInvuln = false;
@@ -151,6 +152,12 @@ export class Player {
 
   update(dt) {
     this._jumpEvent = false;
+    if (this.dead) {
+      this.sprinting = false;
+      this.velocity.x = THREE.MathUtils.damp(this.velocity.x, 0, 10, dt);
+      this.velocity.z = THREE.MathUtils.damp(this.velocity.z, 0, 10, dt);
+      return this._postUpdate(dt);
+    }
     if (!this.controllable) {
       // intro/cutscene: sem controlo — travar X/Z, mas deixar a física vertical funcionar.
       this.sprinting = false;
@@ -347,7 +354,7 @@ export class Player {
   }
 
   tryKick() {
-    if (this.kickCd > 0) return false;
+    if (this.dead || this.kickCd > 0) return false;
     this.kickCd = 0.45; this.kickTimer = 0.22; this.kickActive = true; this.kickHits.clear();
     this._kickEvent = true;
     playKick();
@@ -356,6 +363,7 @@ export class Player {
   }
 
   givePower(club) {
+    if (this.dead) return;
     if (!this.powerCounts[club] && this.powerCounts[club] !== 0) return;
     this.powerCounts[club] = Math.min(3, this.powerCounts[club] + 1);
     this.lastPower = club;
@@ -401,7 +409,7 @@ export class Player {
   }
 
   activateSpecial(type) {
-    if (!type || this.powerCounts[type] < 3) return false;
+    if (this.dead || !type || this.powerCounts[type] < 3) return false;
     this.consumePower(type, 3);
     if (type === 'speed') {
       this.giantT = 20;
@@ -435,7 +443,7 @@ export class Player {
   }
 
   hit(enemyPos) {
-    if (this.invuln > 0 || (this.greenAirInvuln && !this.grounded)) return false;
+    if (this.dead || this.invuln > 0 || (this.greenAirInvuln && !this.grounded)) return false;
     const away = new THREE.Vector3().subVectors(this.position, enemyPos); away.y = 0;
     if (away.lengthSq() < 0.001) away.set(0, 0, 1);
     away.normalize().multiplyScalar(7);
@@ -447,8 +455,16 @@ export class Player {
       return 'shield';
     }
 
-    this.hp -= 22;
-    if (this.hp <= 0) { this.hp = this.maxHp; this.respawn(true); return 'down'; }
+    this.hp = Math.max(0, this.hp - 22);
+    if (this.hp <= 0) {
+      this.dead = true;
+      this.controllable = false;
+      this.sprinting = false;
+      this.greenAirInvuln = false;
+      this.giantT = 0;
+      window.__gameOver?.();
+      return 'down';
+    }
     return 'hp';
   }
 
