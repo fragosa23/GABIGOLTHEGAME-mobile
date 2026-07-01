@@ -7,6 +7,43 @@ const HP_DOT_GEO = new THREE.SphereGeometry(0.045, 10, 10);
 const HP_DOT_MAT = new THREE.MeshBasicMaterial({ color: 0xff1e2d, transparent: true, opacity: 0.95, depthTest: true });
 const HP_DOT_EMPTY_MAT = new THREE.MeshBasicMaterial({ color: 0x1a0508, transparent: true, opacity: 0.28, depthTest: true });
 
+let bossHud = null;
+let bossHudEnemy = null;
+
+function ensureBossHud() {
+  if (bossHud) return bossHud;
+  const root = document.createElement('div');
+  root.id = 'bossHpHud';
+  root.style.cssText = `position:fixed;top:max(10px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));
+    z-index:91;pointer-events:none;font-family:system-ui,sans-serif;color:#fff;text-shadow:0 2px 6px #0008;
+    opacity:0;transition:opacity .18s;`;
+  root.innerHTML = `
+    <div style="font-weight:900;font-size:clamp(11px,2.1vw,15px);letter-spacing:.5px;margin-bottom:4px;text-align:right;color:#ff5161;">BOSS</div>
+    <div style="width:clamp(130px,25vw,190px);height:clamp(12px,2.4vw,16px);background:#0008;border:2px solid #fff6;border-radius:10px;overflow:hidden;box-shadow:0 0 14px #d11a2a55;">
+      <div id="bossHpFill" style="height:100%;width:100%;background:linear-gradient(90deg,#7a000c,#ff1e2d,#ff6470);transition:width .18s;"></div>
+    </div>`;
+  document.body.appendChild(root);
+  bossHud = { root, fill: root.querySelector('#bossHpFill') };
+  return bossHud;
+}
+
+function updateBossHud(enemy, active) {
+  const hud = ensureBossHud();
+  if (!active || !enemy?.alive) {
+    if (bossHudEnemy === enemy || !enemy?.alive) hud.root.style.opacity = '0';
+    return;
+  }
+  bossHudEnemy = enemy;
+  const pct = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp)) * 100;
+  hud.fill.style.width = pct + '%';
+  hud.root.style.opacity = '1';
+}
+
+function hideBossHud(enemy) {
+  if (!bossHud) return;
+  if (!enemy || bossHudEnemy === enemy) bossHud.root.style.opacity = '0';
+}
+
 // Equipamento do Benfica (1º nível): camisola vermelha, calções brancos, meias vermelhas.
 const BENFICA = {
   shirt: 0xe30613, shorts: 0xf2f2f2, socks: 0xe30613, boots: 0x141414,
@@ -26,6 +63,7 @@ export class Enemy {
     this.detect = opts.detect ?? 14;
     this.hp = opts.hp ?? 3;
     this.maxHp = this.hp;
+    this.isBoss = !!opts.isBoss || this.hp >= 10 || (opts.scale ?? 1) >= 2.5;
     this.radius = opts.radius ?? 0.7;
     this.facing = 0;
     this.wanderT = 0;
@@ -55,9 +93,12 @@ export class Enemy {
     this.parts = this.model.userData.parts;
     this._baseHipsY = this.parts.hips.position.y;
     this.hpDots = [];
-    this.hpBar = this._buildHpBar();
-    this.model.add(this.hpBar);
-    this._updateHpDots();
+    this.hpBar = null;
+    if (!this.isBoss) {
+      this.hpBar = this._buildHpBar();
+      this.model.add(this.hpBar);
+      this._updateHpDots();
+    }
     this.model.position.copy(this.position);
     scene.add(this.model);
 
@@ -121,6 +162,7 @@ export class Enemy {
   }
 
   _updateHpDots() {
+    if (!this.hpDots?.length) return;
     for (let i = 0; i < this.hpDots.length; i++) {
       const active = i < Math.max(0, this.hp);
       const dot = this.hpDots[i];
@@ -177,6 +219,7 @@ export class Enemy {
     const away = new THREE.Vector3().subVectors(this.position, fromPos); away.y = 0;
     if (away.lengthSq() < 0.001) away.set(0, 0, 1);
     away.normalize();
+    if (this.isBoss) updateBossHud(this, true);
     if (this.hp <= 0) { this.defeat(); return 'defeat'; }
     this.kb.copy(away).multiplyScalar(9 * force * knockMult);
     this.vy = 6.5 * Math.min(force, 2.2); this.stun = 0.6 + Math.min(force * 0.08, 0.25);
@@ -200,12 +243,15 @@ export class Enemy {
       if (this.position.y <= this.home.y) { this.position.y = this.home.y; this.vy = 0; }
       this.model.position.copy(this.position);
       this.model.rotation.z = Math.sin(performance.now() * 0.03) * 0.25;
+      const stunDist = Math.hypot(player.position.x - this.position.x, player.position.z - this.position.z);
+      if (this.isBoss) updateBossHud(this, stunDist < 28);
       return;
     }
     this.model.rotation.z = THREE.MathUtils.damp(this.model.rotation.z, 0, 12, dt);
 
     const toPlayer = new THREE.Vector3().subVectors(player.position, this.position); toPlayer.y = 0;
     const dist = toPlayer.length();
+    if (this.isBoss) updateBossHud(this, dist < 28);
 
     const dir = new THREE.Vector3();
     if (dist < this.detect) {
@@ -257,6 +303,7 @@ export class Enemy {
 
   defeat() {
     this.alive = false;
+    hideBossHud(this);
     this.scene.remove(this.model);
     if (this.trail) this.scene.remove(this.trail);
   }
