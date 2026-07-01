@@ -119,6 +119,7 @@ export class Player {
     this.maxHp = 100; this.hp = 100; this.invuln = 0; this.coins = 0;
     this.giantT = 0;
     this.greenMegaLanding = false;
+    this.greenAirInvuln = false;
     this.didDoubleJump = false;
     this.landingShockwave = null;
 
@@ -180,8 +181,12 @@ export class Player {
     if (this.grounded) this.jumps = 0;
     if (this.input.jump() && this.jumps < this.maxJumps) {
       this.jumps++; this.grounded = false; this._jumpEvent = true;
-      if (this.jumps >= 2) { this.velocity.y = 15; this.didDoubleJump = true; playSiii(); }
-      else { this.velocity.y = 14; playJump(); }
+      if (this.jumps >= 2) {
+        this.velocity.y = 15;
+        this.didDoubleJump = true;
+        this.greenAirInvuln = true;
+        playSiii();
+      } else { this.velocity.y = 14; playJump(); }
     }
     return this._postUpdate(dt);
   }
@@ -266,6 +271,7 @@ export class Player {
   }
 
   _onLand() {
+    this.greenAirInvuln = false;
     if (this.greenMegaLanding) {
       this.greenMegaLanding = false;
       this.didDoubleJump = false;
@@ -412,6 +418,7 @@ export class Player {
     }
     if (type === 'jump') {
       this.greenMegaLanding = true;
+      this.greenAirInvuln = true;
       this.didDoubleJump = false;
       this.landingShockwave = null;
       this.grounded = false;
@@ -428,7 +435,7 @@ export class Player {
   }
 
   hit(enemyPos) {
-    if (this.invuln > 0) return false;
+    if (this.invuln > 0 || (this.greenAirInvuln && !this.grounded)) return false;
     const away = new THREE.Vector3().subVectors(this.position, enemyPos); away.y = 0;
     if (away.lengthSq() < 0.001) away.set(0, 0, 1);
     away.normalize().multiplyScalar(7);
@@ -447,6 +454,7 @@ export class Player {
 
   respawn(toSpawn) {
     if (toSpawn) this.position.copy(this._spawn);
+    this.greenAirInvuln = false;
     this.velocity.set(0, 0, 0);
   }
 }
